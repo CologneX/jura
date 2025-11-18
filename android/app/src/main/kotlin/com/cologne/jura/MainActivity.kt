@@ -1,4 +1,4 @@
-package com.example.jura
+package com.cologne.jura
 
 import io.flutter.embedding.android.FlutterActivity
 
