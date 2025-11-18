@@ -1,10 +1,14 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:motion_toast/motion_toast.dart';
+import 'package:jura/routes.dart';
 import 'package:jura/services/auth_service.dart';
 import 'package:jura/state/auth_state.dart';
 
 class LoginPage extends StatefulWidget {
-  const LoginPage({super.key});
+  final String? prefillEmail;
+
+  const LoginPage({super.key, this.prefillEmail});
 
   @override
   State<LoginPage> createState() => _LoginPageState();
@@ -21,6 +25,9 @@ class _LoginPageState extends State<LoginPage> {
   void initState() {
     super.initState();
     _authState = AuthState(AuthService());
+    if (widget.prefillEmail != null) {
+      _emailController.text = widget.prefillEmail!;
+    }
   }
 
   @override
@@ -38,23 +45,26 @@ class _LoginPageState extends State<LoginPage> {
 
   Future<void> _login() async {
     if (_emailController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter your email')),
-      );
+      MotionToast.error(
+        title: const Text('Validation Error'),
+        description: const Text('Please enter your email'),
+      ).show(context);
       return;
     }
 
     if (!_isValidEmail(_emailController.text)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter a valid email')),
-      );
+      MotionToast.error(
+        title: const Text('Validation Error'),
+        description: const Text('Please enter a valid email'),
+      ).show(context);
       return;
     }
 
     if (_passwordController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter your password')),
-      );
+      MotionToast.error(
+        title: const Text('Validation Error'),
+        description: const Text('Please enter your password'),
+      ).show(context);
       return;
     }
 
@@ -64,46 +74,46 @@ class _LoginPageState extends State<LoginPage> {
     );
 
     if (mounted && _authState.isAuthenticated) {
-      Navigator.of(context).pushReplacementNamed('/home');
+      Navigator.of(context).pushReplacementNamed(AppRoutes.home);
     } else if (mounted && _authState.hasError) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(_authState.error ?? 'Login failed'),
-          backgroundColor: Theme.of(context).colorScheme.error,
-        ),
-      );
+      MotionToast.error(
+        title: const Text('Login Failed'),
+        description: Text(_authState.error ?? 'Login failed'),
+      ).show(context);
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: ListenableBuilder(
-        listenable: _authState,
-        builder: (context, child) {
-          return SingleChildScrollView(
-            child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const SizedBox(height: 48),
-                  _buildHeader(),
-                  const SizedBox(height: 48),
-                  _buildEmailField(),
-                  const SizedBox(height: 20),
-                  _buildPasswordField(),
-                  const SizedBox(height: 12),
-                  _buildRememberMeCheckbox(),
-                  const SizedBox(height: 32),
-                  _buildLoginButton(),
-                  const SizedBox(height: 24),
-                  _buildSignUpLink(),
-                ],
+      body: SafeArea(
+        child: ListenableBuilder(
+          listenable: _authState,
+          builder: (context, child) {
+            return SingleChildScrollView(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SizedBox(height: 48),
+                    _buildHeader(),
+                    const SizedBox(height: 48),
+                    _buildEmailField(),
+                    const SizedBox(height: 20),
+                    _buildPasswordField(),
+                    const SizedBox(height: 12),
+                    _buildRememberMeCheckbox(),
+                    const SizedBox(height: 32),
+                    _buildLoginButton(),
+                    const SizedBox(height: 24),
+                    _buildSignUpLink(),
+                  ],
+                ),
               ),
-            ),
-          );
-        },
+            );
+          },
+        ),
       ),
     );
   }
@@ -205,9 +215,10 @@ class _LoginPageState extends State<LoginPage> {
         const Spacer(),
         TextButton(
           onPressed: () {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Forgot password feature coming soon')),
-            );
+            MotionToast.info(
+              title: const Text('Coming Soon'),
+              description: const Text('Forgot password feature coming soon'),
+            ).show(context);
           },
           child: Text(
             'Forgot password?',
@@ -254,7 +265,7 @@ class _LoginPageState extends State<LoginPage> {
               ),
               recognizer: TapGestureRecognizer()
                 ..onTap = () {
-                  Navigator.of(context).pushReplacementNamed('/register');
+                  Navigator.of(context).pushReplacementNamed(AppRoutes.register);
                 },
             ),
           ],

@@ -1,5 +1,7 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:motion_toast/motion_toast.dart';
+import 'package:jura/routes.dart';
 import 'package:jura/services/auth_service.dart';
 import 'package:jura/state/auth_state.dart';
 
@@ -37,45 +39,51 @@ class _RegisterPageState extends State<RegisterPage> {
 
   void _nextStep() {
     if (_currentStep == 0 && _nameController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter your name')),
-      );
+      MotionToast.error(
+        title: const Text('Validation Error'),
+        description: const Text('Please enter your name'),
+      ).show(context);
       return;
     }
 
     if (_currentStep == 1 && _emailController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter your email')),
-      );
+      MotionToast.error(
+        title: const Text('Validation Error'),
+        description: const Text('Please enter your email'),
+      ).show(context);
       return;
     }
 
     if (_currentStep == 1 && !_isValidEmail(_emailController.text)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter a valid email')),
-      );
+      MotionToast.error(
+        title: const Text('Validation Error'),
+        description: const Text('Please enter a valid email'),
+      ).show(context);
       return;
     }
 
     if (_currentStep == 2 && _passwordController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter a password')),
-      );
+      MotionToast.error(
+        title: const Text('Validation Error'),
+        description: const Text('Please enter a password'),
+      ).show(context);
       return;
     }
 
     if (_currentStep == 2 && _passwordController.text.length < 6) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Password must be at least 6 characters')),
-      );
+      MotionToast.error(
+        title: const Text('Validation Error'),
+        description: const Text('Password must be at least 6 characters'),
+      ).show(context);
       return;
     }
 
     if (_currentStep == 2 &&
         _passwordController.text != _confirmPasswordController.text) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Passwords do not match')),
-      );
+      MotionToast.error(
+        title: const Text('Validation Error'),
+        description: const Text('Passwords do not match'),
+      ).show(context);
       return;
     }
 
@@ -106,14 +114,15 @@ class _RegisterPageState extends State<RegisterPage> {
     );
 
     if (mounted && _authState.isAuthenticated) {
-      Navigator.of(context).pushReplacementNamed('/login');
-    } else if (mounted && _authState.hasError) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(_authState.error ?? 'Registration failed'),
-          backgroundColor: Theme.of(context).colorScheme.error,
-        ),
+      Navigator.of(context).pushReplacementNamed(
+        AppRoutes.login,
+        arguments: _emailController.text,
       );
+    } else if (mounted && _authState.hasError) {
+      MotionToast.error(
+        title: const Text('Registration Failed'),
+        description: Text(_authState.error ?? 'Registration failed'),
+      ).show(context);
     }
   }
 
@@ -130,29 +139,31 @@ class _RegisterPageState extends State<RegisterPage> {
               )
             : null,
       ),
-      body: ListenableBuilder(
-        listenable: _authState,
-        builder: (context, child) {
-          return SingleChildScrollView(
-            child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildProgressIndicator(),
-                  const SizedBox(height: 32),
-                  if (_currentStep == 0) _buildNameStep(),
-                  if (_currentStep == 1) _buildEmailStep(),
-                  if (_currentStep == 2) _buildPasswordStep(),
-                  const SizedBox(height: 32),
-                  _buildButtons(),
-                  const SizedBox(height: 16),
-                  _buildLoginLink(),
-                ],
+      body: SafeArea(
+        child: ListenableBuilder(
+          listenable: _authState,
+          builder: (context, child) {
+            return SingleChildScrollView(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildProgressIndicator(),
+                    const SizedBox(height: 32),
+                    if (_currentStep == 0) _buildNameStep(),
+                    if (_currentStep == 1) _buildEmailStep(),
+                    if (_currentStep == 2) _buildPasswordStep(),
+                    const SizedBox(height: 32),
+                    _buildButtons(),
+                    const SizedBox(height: 16),
+                    _buildLoginLink(),
+                  ],
+                ),
               ),
-            ),
-          );
-        },
+            );
+          },
+        ),
       ),
     );
   }
@@ -321,7 +332,7 @@ class _RegisterPageState extends State<RegisterPage> {
               ),
               recognizer: TapGestureRecognizer()
                 ..onTap = () {
-                  Navigator.of(context).pushReplacementNamed('/login');
+                  Navigator.of(context).pushReplacementNamed(AppRoutes.login);
                 },
             ),
           ],

@@ -1,6 +1,8 @@
 import 'dart:convert';
+import 'dart:developer';
 import 'package:http/http.dart' as http;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:jura/config/api_config.dart';
 import 'package:jura/models/api_response.dart';
 import 'package:jura/models/auth.dart';
 import 'package:jura/navigation.dart';
@@ -12,7 +14,6 @@ import 'package:jura/navigation.dart';
 /// - if refresh succeeds, stores new tokens and retries the original request
 /// - if refresh fails (401), clears tokens and navigates to login page
 class ProtectedApiClient {
-  static const String _baseUrl = 'http://localhost:8080/api/v1';
   static const String _accessTokenKey = 'access_token';
   static const String _refreshTokenKey = 'refresh_token';
 
@@ -20,10 +21,12 @@ class ProtectedApiClient {
   final FlutterSecureStorage _secureStorage;
 
   ProtectedApiClient({http.Client? inner, FlutterSecureStorage? storage})
-      : _inner = inner ?? http.Client(),
-        _secureStorage = storage ?? const FlutterSecureStorage();
+    : _inner = inner ?? http.Client(),
+      _secureStorage = storage ?? const FlutterSecureStorage();
 
-  Future<Map<String, String>> _defaultHeaders({Map<String, String>? extra}) async {
+  Future<Map<String, String>> _defaultHeaders({
+    Map<String, String>? extra,
+  }) async {
     final headers = <String, String>{'Accept': 'application/json'};
     if (extra != null) headers.addAll(extra);
     final token = await _secureStorage.read(key: _accessTokenKey);
@@ -37,24 +40,58 @@ class ProtectedApiClient {
   }
 
   Future<http.Response> get(Uri uri, {Map<String, String>? headers}) async {
-    return await _performRequest(() async => await _inner.get(uri, headers: await _defaultHeaders(extra: headers)));
+    return await _performRequest(
+      () async =>
+          await _inner.get(uri, headers: await _defaultHeaders(extra: headers)),
+    );
   }
 
-  Future<http.Response> post(Uri uri, {Map<String, String>? headers, Object? body}) async {
-    final bodyStr = body is String ? body : (body != null ? json.encode(body) : null);
-    return await _performRequest(() async => await _inner.post(uri, headers: await _defaultHeaders(extra: headers), body: bodyStr));
+  Future<http.Response> post(
+    Uri uri, {
+    Map<String, String>? headers,
+    Object? body,
+  }) async {
+    final bodyStr = body is String
+        ? body
+        : (body != null ? json.encode(body) : null);
+    return await _performRequest(
+      () async => await _inner.post(
+        uri,
+        headers: await _defaultHeaders(extra: headers),
+        body: bodyStr,
+      ),
+    );
   }
 
-  Future<http.Response> put(Uri uri, {Map<String, String>? headers, Object? body}) async {
-    final bodyStr = body is String ? body : (body != null ? json.encode(body) : null);
-    return await _performRequest(() async => await _inner.put(uri, headers: await _defaultHeaders(extra: headers), body: bodyStr));
+  Future<http.Response> put(
+    Uri uri, {
+    Map<String, String>? headers,
+    Object? body,
+  }) async {
+    final bodyStr = body is String
+        ? body
+        : (body != null ? json.encode(body) : null);
+    return await _performRequest(
+      () async => await _inner.put(
+        uri,
+        headers: await _defaultHeaders(extra: headers),
+        body: bodyStr,
+      ),
+    );
   }
 
   Future<http.Response> delete(Uri uri, {Map<String, String>? headers}) async {
-    return await _performRequest(() async => await _inner.delete(uri, headers: await _defaultHeaders(extra: headers)));
+    return await _performRequest(
+      () async => await _inner.delete(
+        uri,
+        headers: await _defaultHeaders(extra: headers),
+      ),
+    );
   }
 
-  Future<http.Response> _performRequest(Future<http.Response> Function() requestFn) async {
+  Future<http.Response> _performRequest(
+    Future<http.Response> Function() requestFn,
+  ) async {
     http.Response response;
     try {
       response = await requestFn();
@@ -62,12 +99,17 @@ class ProtectedApiClient {
       rethrow;
     }
 
+    log(
+      'ProtectedApiClient: Received response with status ${response.body}',
+    );
+
     if (response.statusCode != 401) return response;
 
     // Got 401 - attempt refresh
     final refreshed = await _refreshTokens();
+    // log('ProtectedApiClient: Token refresh ' + (refreshed ? 'succeeded' : 'failed'));
     if (!refreshed) {
-      // refresh failed - clear tokens and navigate to login
+      // refresh failed - navigate to login
       await _clearTokens();
       _navigateToLogin();
       return response; // original 401
@@ -91,19 +133,23 @@ class ProtectedApiClient {
     try {
       final refreshToken = await _secureStorage.read(key: _refreshTokenKey);
       if (refreshToken == null || refreshToken.isEmpty) return false;
-
-      final uri = Uri.parse('$_baseUrl/refresh-token');
+      final uri = Uri.parse('${ApiConfig.baseUrl}/users/refresh-token');
       final headers = <String, String>{
         'Accept': 'application/json',
         'Content-Type': 'application/json',
         // Attach refresh token as a cookie per spec
         'Cookie': 'refresh_token=$refreshToken',
       };
-
-      final resp = await _inner.post(uri, headers: headers).timeout(const Duration(seconds: 20));
+      final resp = await _inner
+          .get(uri, headers: headers)
+          .timeout(const Duration(seconds: 20));
       if (resp.statusCode == 200) {
-        final Map<String, dynamic> jsonResp = json.decode(resp.body) as Map<String, dynamic>;
-        final apiResp = ApiResponse<LoginResponse>.fromJson(jsonResp, (data) => LoginResponse.fromJson(data as Map<String, dynamic>));
+        final Map<String, dynamic> jsonResp =
+            json.decode(resp.body) as Map<String, dynamic>;
+        final apiResp = ApiResponse<LoginResponse>.fromJson(
+          jsonResp,
+          (data) => LoginResponse.fromJson(data as Map<String, dynamic>),
+        );
         if (apiResp.success && apiResp.data != null) {
           final access = apiResp.data!.accessToken;
           final refresh = apiResp.data!.refreshToken;
@@ -133,7 +179,10 @@ class ProtectedApiClient {
 
   void _navigateToLogin() {
     try {
-      navigatorKey.currentState?.pushNamedAndRemoveUntil('/login', (r) => false);
+      navigatorKey.currentState?.pushNamedAndRemoveUntil(
+        '/login',
+        (r) => false,
+      );
     } catch (_) {}
   }
 }

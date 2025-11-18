@@ -1,31 +1,35 @@
-import 'dart:convert';
+import 'dart:developer';
+
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart' show rootBundle;
+import 'package:flutter_gemini/flutter_gemini.dart';
+import 'package:jura/config/api_config.dart';
 import 'package:jura/home_page.dart';
 import 'package:jura/login_page.dart';
-import 'package:jura/register_page.dart';
+import 'package:jura/navigation.dart';
+import 'package:jura/routes.dart';
 import 'package:jura/services/auth_service.dart';
 import 'package:jura/state/auth_state.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:jura/utils/theme.dart';
+import 'package:jura/utils/util.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  ThemeData? externalTheme;
-  try {
-    final raw = await rootBundle.loadString('theme.json');
-    final Map<String, dynamic> map = json.decode(raw) as Map<String, dynamic>;
-    externalTheme = _themeDataFromJson(map);
-  } catch (e) {
-    print('Failed to load theme.json: $e');
+  await dotenv.load(fileName: ".env");
+  // Initialize API configuration
+  ApiConfig.initialize();
+  // Initialize Gemini API
+  final apiKey = dotenv.env['GEMINI_API_KEY'] ?? '';
+  if (apiKey.isNotEmpty) {
+    Gemini.init(apiKey: apiKey);
   }
 
-  runApp(MyApp(theme: externalTheme));
+  runApp(MyApp());
 }
 
 class MyApp extends StatefulWidget {
-  const MyApp({super.key, this.theme});
-
-  final ThemeData? theme;
+  const MyApp({super.key});
 
   @override
   State<MyApp> createState() => _MyAppState();
@@ -44,10 +48,17 @@ class _MyAppState extends State<MyApp> {
 
   @override
   Widget build(BuildContext context) {
+    final brightness = MediaQuery.of(context).platformBrightness;
+    TextTheme textTheme = createTextTheme(context, "Rubik", "Poppins");
+    MaterialTheme theme = MaterialTheme(textTheme);
+
+    // auth 
+    log('Auth State: isAuthenticated=${_authState.isAuthenticated}');
     return MaterialApp(
       title: 'Jura',
       debugShowCheckedModeBanner: false,
-      theme: widget.theme ?? ThemeData(useMaterial3: true),
+      theme: brightness == Brightness.light ? theme.light() : theme.dark(),
+      navigatorKey: navigatorKey,
       home: FutureBuilder(
         future: _initFuture,
         builder: (context, snapshot) {
@@ -60,43 +71,14 @@ class _MyAppState extends State<MyApp> {
           return ListenableBuilder(
             listenable: _authState,
             builder: (context, child) {
-              return _authState.isAuthenticated ? const HomePage() : const LoginPage();
+              return _authState.isAuthenticated
+                  ? const HomePage()
+                  : const LoginPage();
             },
           );
         },
       ),
-      routes: {
-        '/login': (context) => const LoginPage(),
-        '/register': (context) => const RegisterPage(),
-        '/home': (context) => const HomePage(),
-      },
+      onGenerateRoute: RouteGenerator.generateRoute,
     );
   }
-}
-
-ThemeData _themeDataFromJson(Map<String, dynamic> json) {
-  Color parseColor(String? hex, [Color fallback = Colors.deepPurple]) {
-    if (hex == null) return fallback;
-    final h = hex.replaceFirst('#', '');
-    final withAlpha = (h.length == 6) ? 'ff$h' : h;
-    return Color(int.parse(withAlpha, radix: 16));
-  }
-
-  final cs = json['colorScheme'] as Map<String, dynamic>?;
-  final primary = parseColor(cs?['primary'] as String?, Colors.deepPurple);
-  final brightnessStr = (json['brightness'] as String?)?.toLowerCase();
-  final brightness = brightnessStr == 'dark'
-      ? Brightness.dark
-      : Brightness.light;
-
-  final colorScheme = ColorScheme.fromSeed(
-    seedColor: primary,
-    brightness: brightness,
-  );
-
-  return ThemeData.from(colorScheme: colorScheme).copyWith(
-    scaffoldBackgroundColor: json['scaffoldBackgroundColor'] != null
-        ? parseColor(json['scaffoldBackgroundColor'] as String)
-        : null,
-  );
 }

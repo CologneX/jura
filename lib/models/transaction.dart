@@ -1,3 +1,46 @@
+import 'package:jura/utils/formatters.dart';
+
+/// Request payload for creating a new transaction
+class CreateTransaction {
+  final String type;
+  final double amount;
+  final String currency;
+  final DateTime date;
+  final String? category;
+  final String? subcategory;
+  final String notes;
+  final String paymentMethod;
+
+  CreateTransaction({
+    required this.type,
+    required this.amount,
+    required this.currency,
+    required this.date,
+    this.category,
+    this.subcategory,
+    required this.notes,
+    required this.paymentMethod,
+  });
+
+  Map<String, dynamic> toJson() => {
+    'type': type,
+    'amount': amount,
+    'currency': currency,
+    'date': date.toIso8601String(),
+    'category': category,
+    'subcategory': subcategory,
+    'notes': notes,
+    'payment_method': paymentMethod,
+  };
+
+  @override
+  String toString() {
+    return 'CreateTransaction{type: $type, amount: $amount, currency: $currency, date: $date, category: $category, subcategory: $subcategory, notes: $notes, paymentMethod: $paymentMethod}';
+  }
+}
+
+/// Response from the transaction endpoint
+
 class Transaction {
   final String id;
   final String type;
@@ -8,8 +51,6 @@ class Transaction {
   final String? subcategory;
   final String notes;
   final String paymentMethod;
-  final DateTime createdAt;
-  final DateTime updatedAt;
 
   Transaction({
     required this.id,
@@ -21,8 +62,6 @@ class Transaction {
     this.subcategory,
     required this.notes,
     required this.paymentMethod,
-    required this.createdAt,
-    required this.updatedAt,
   });
 
   factory Transaction.fromJson(Map<String, dynamic> json) {
@@ -36,8 +75,6 @@ class Transaction {
       subcategory: json['subcategory'] as String?,
       notes: json['notes'] as String? ?? '',
       paymentMethod: json['payment_method'] as String? ?? 'cash',
-      createdAt: DateTime.parse(json['created_at'] as String),
-      updatedAt: DateTime.parse(json['updated_at'] as String),
     );
   }
 
@@ -51,11 +88,9 @@ class Transaction {
     'subcategory': subcategory,
     'notes': notes,
     'payment_method': paymentMethod,
-    'created_at': createdAt.toIso8601String(),
-    'updated_at': updatedAt.toIso8601String(),
   };
 
-  String get formattedAmount => '$currency ${amount.toStringAsFixed(2)}';
+  String get formattedAmount => formatCurrency(amount, currencyCode: currency);
   String get formattedDate => _formatDate(date);
   String get displayType => type.toUpperCase();
 
@@ -70,9 +105,26 @@ class Transaction {
     } else if (dateOnly == yesterday) {
       return 'Yesterday';
     } else {
-      final months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-                      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      final months = [
+        'Jan',
+        'Feb',
+        'Mar',
+        'Apr',
+        'May',
+        'Jun',
+        'Jul',
+        'Aug',
+        'Sep',
+        'Oct',
+        'Nov',
+        'Dec',
+      ];
       return '${months[date.month - 1]} ${date.day}, ${date.year}';
     }
+  }
+
+  @override
+  String toString() {
+    return 'Transaction{id: $id, type: $type, amount: $amount, currency: $currency, date: $date, category: $category, subcategory: $subcategory, notes: $notes, paymentMethod: $paymentMethod}';
   }
 }

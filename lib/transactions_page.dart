@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:jura/models/transaction.dart';
+import 'package:jura/utils/formatters.dart';
 import 'package:jura/services/transaction_service.dart';
 import 'package:jura/state/transaction_state.dart';
+import 'package:skeletonizer/skeletonizer.dart';
 
 class TransactionsPage extends StatefulWidget {
   const TransactionsPage({super.key});
@@ -27,134 +29,186 @@ class _TransactionsPageState extends State<TransactionsPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Transactions'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _loadTransactions,
-          ),
-        ],
-      ),
-      body: ListenableBuilder(
-        listenable: _transactionState,
-        builder: (context, child) {
-          if (_transactionState.isLoading) {
-            return const Center(
-              child: CircularProgressIndicator(),
-            );
-          }
-
-          if (_transactionState.hasError) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.error_outline,
-                    color: Theme.of(context).colorScheme.error,
-                    size: 48,
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Error loading transactions',
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
-                  const SizedBox(height: 8),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 24),
-                    child: Text(
-                      _transactionState.error ?? 'Unknown error occurred',
-                      textAlign: TextAlign.center,
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: Theme.of(context).colorScheme.error,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  ElevatedButton(
-                    onPressed: _loadTransactions,
-                    child: const Text('Retry'),
-                  ),
-                ],
-              ),
-            );
-          }
-
-          if (_transactionState.transactions.isEmpty) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.receipt_long_outlined,
-                    color: Theme.of(context).colorScheme.outline,
-                    size: 48,
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'No transactions yet',
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
-                  const SizedBox(height: 24),
-                  TextButton(
-                    onPressed: () => Navigator.pop(context),
-                    child: const Text('Go Back'),
-                  ),
-                ],
-              ),
-            );
-          }
-
-          return Column(
-            children: [
-              // Summary cards
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: Row(
+      // appBar: AppBar(
+      //   actions: [
+      //     IconButton(
+      //       icon: const Icon(Icons.refresh),
+      //       onPressed: _loadTransactions,
+      //     ),
+      //   ],
+      // ),
+      body: SafeArea(
+        child: ListenableBuilder(
+          listenable: _transactionState,
+          builder: (context, child) {
+            if (_transactionState.isLoading) {
+              return Skeletonizer(
+                child: Column(
                   children: [
-                    Expanded(
-                      child: _SummaryCard(
-                        title: 'Income',
-                        amount: _transactionState.totalIncome,
-                        isExpense: false,
+                    // Skeleton Summary cards
+                    Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: _SummaryCard(
+                              title: 'Income',
+                              amount: 0.0,
+                              isExpense: false,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: _SummaryCard(
+                              title: 'Expenses',
+                              amount: 0.0,
+                              isExpense: true,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                    const SizedBox(width: 12),
+                    // Skeleton transactions list
                     Expanded(
-                      child: _SummaryCard(
-                        title: 'Expenses',
-                        amount: _transactionState.totalExpenses,
-                        isExpense: true,
+                      child: ListView.builder(
+                        itemCount: 5,
+                        itemBuilder: (context, index) {
+                          return ListTile(
+                            leading: Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: const Icon(Icons.trending_down),
+                            ),
+                            title: const Text('Transaction Category'),
+                            subtitle: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: const [
+                                SizedBox(height: 4),
+                                Text('Date'),
+                              ],
+                            ),
+                            trailing: const Text('-\$0.00'),
+                          );
+                        },
                       ),
                     ),
                   ],
                 ),
-              ),
-              // Transactions list
-              Expanded(
-                child: ListView.builder(
-                  itemCount: _transactionState.transactionsSortedByDate.length,
-                  itemBuilder: (context, index) {
-                    final transaction =
-                        _transactionState.transactionsSortedByDate[index];
-                    return _TransactionTile(transaction: transaction);
-                  },
+              );
+            }
+
+            if (_transactionState.hasError) {
+              return Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.error_outline,
+                      color: Theme.of(context).colorScheme.error,
+                      size: 48,
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Error loading transactions',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    const SizedBox(height: 8),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 24),
+                      child: Text(
+                        _transactionState.error ?? 'Unknown error occurred',
+                        textAlign: TextAlign.center,
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: Theme.of(context).colorScheme.error,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    ElevatedButton(
+                      onPressed: _loadTransactions,
+                      child: const Text('Retry'),
+                    ),
+                  ],
                 ),
-              ),
-            ],
-          );
-        },
+              );
+            }
+
+            if (_transactionState.transactions.isEmpty) {
+              return Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.receipt_long_outlined,
+                      color: Theme.of(context).colorScheme.outline,
+                      size: 48,
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'No transactions yet',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                  ],
+                ),
+              );
+            }
+
+            return Column(
+              children: [
+                // Summary cards
+                Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: _SummaryCard(
+                          title: 'Income',
+                          amount: _transactionState.totalIncome,
+                          isExpense: false,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: _SummaryCard(
+                          title: 'Expenses',
+                          amount: _transactionState.totalExpenses,
+                          isExpense: true,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                // Transactions list
+                Expanded(
+                  child: RefreshIndicator(
+                    onRefresh: _loadTransactions,
+                    child: ListView.builder(
+                      itemCount: _transactionState.transactions.length,
+                      itemBuilder: (context, index) {
+                        return _TransactionTile(
+                          transaction: _transactionState.transactions[index],
+                        );
+                      },
+                    ),
+                  ),
+                ),
+              ],
+            );
+          },
+        ),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          // Navigate to create transaction page
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Create transaction feature coming soon')),
-          );
-        },
-        child: const Icon(Icons.add),
-      ),
+      // floatingActionButton: FloatingActionButton(
+      //   onPressed: () {
+      //     // Navigate to create transaction page
+      //     MotionToast.info(
+      //       title: const Text('Coming Soon'),
+      //       description: const Text('Create transaction feature coming soon'),
+      //     ).show(context);
+      //   },
+      //   child: const Icon(Icons.add),
+      // ),
     );
   }
 }
@@ -190,7 +244,7 @@ class _SummaryCard extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              '\$${amount.toStringAsFixed(2)}',
+              formatCurrency(amount, currencyCode: 'USD'),
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
                 color: color,
                 fontWeight: FontWeight.bold,
@@ -229,9 +283,9 @@ class _TransactionTile extends StatelessWidget {
       ),
       title: Text(
         transaction.category ?? 'Uncategorized',
-        style: Theme.of(context).textTheme.titleSmall?.copyWith(
-          fontWeight: FontWeight.w600,
-        ),
+        style: Theme.of(
+          context,
+        ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
       ),
       subtitle: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -253,7 +307,7 @@ class _TransactionTile extends StatelessWidget {
         ],
       ),
       trailing: Text(
-        '${isExpense ? '-' : '+'}\$${transaction.amount.toStringAsFixed(2)}',
+        '${isExpense ? '-' : '+'}${formatCurrency(transaction.amount.abs(), currencyCode: transaction.currency)}',
         style: Theme.of(context).textTheme.titleSmall?.copyWith(
           color: color,
           fontWeight: FontWeight.bold,
@@ -263,9 +317,8 @@ class _TransactionTile extends StatelessWidget {
         // Show transaction details
         showDialog(
           context: context,
-          builder: (context) => _TransactionDetailsDialog(
-            transaction: transaction,
-          ),
+          builder: (context) =>
+              _TransactionDetailsDialog(transaction: transaction),
         );
       },
     );
@@ -292,7 +345,10 @@ class _TransactionDetailsDialog extends StatelessWidget {
               _DetailRow(label: 'Amount', value: transaction.formattedAmount),
               _DetailRow(label: 'Date', value: transaction.formattedDate),
               if (transaction.subcategory != null)
-                _DetailRow(label: 'Subcategory', value: transaction.subcategory!),
+                _DetailRow(
+                  label: 'Subcategory',
+                  value: transaction.subcategory!,
+                ),
               _DetailRow(
                 label: 'Payment Method',
                 value: transaction.paymentMethod,
@@ -336,9 +392,9 @@ class _DetailRow extends StatelessWidget {
             child: Text(
               value,
               textAlign: TextAlign.end,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                fontWeight: FontWeight.w500,
-              ),
+              style: Theme.of(
+                context,
+              ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w500),
             ),
           ),
         ],

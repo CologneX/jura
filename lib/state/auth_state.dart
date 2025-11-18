@@ -34,12 +34,8 @@ class AuthState extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final response = await _authService.register(
-        name: name,
-        email: email,
-        password: password,
-      );
-      _user = response.user;
+      await _authService.register(name: name, email: email, password: password);
+
       _isAuthenticated = true;
       _error = null;
     } catch (e) {
@@ -52,19 +48,13 @@ class AuthState extends ChangeNotifier {
     }
   }
 
-  Future<void> login({
-    required String email,
-    required String password,
-  }) async {
+  Future<void> login({required String email, required String password}) async {
     _isLoading = true;
     _error = null;
     notifyListeners();
 
     try {
-      await _authService.login(
-        email: email,
-        password: password,
-      );
+      await _authService.login(email: email, password: password);
       _isAuthenticated = true;
       _error = null;
     } catch (e) {

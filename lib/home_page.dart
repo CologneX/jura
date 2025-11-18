@@ -1,24 +1,429 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:jura/transactions_page.dart';
+import 'package:speech_to_text/speech_to_text.dart' as stt;
+import 'package:jura/services/gemini_service.dart';
+import 'package:jura/services/transaction_service.dart';
 
-class HomePage extends StatelessWidget {
+class HomePage extends StatefulWidget {
   const HomePage({super.key});
+
+  @override
+  State<HomePage> createState() => _HomePageState();
+}
+
+class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
+  late stt.SpeechToText _speechToText;
+  String _transcript = '';
+  bool _isListening = false;
+  double _soundLevel = 0.0;
+  bool _isProcessing = false;
+  String _statusMessage = "";
+  late AnimationController _rippleController;
+  final GeminiService _geminiService = GeminiService();
+  final TransactionService _transactionService = TransactionService();
+  int _selectedIndex = 0;
+  double _dragOffset = 0.0;
+  final double _cancelThreshold = 100.0;
+
+  @override
+  void initState() {
+    super.initState();
+    _speechToText = stt.SpeechToText();
+    _rippleController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 600),
+    );
+    _initializeSpeech();
+  }
+
+  void refreshMessage() {
+    setState(() {
+      _statusMessage = "";
+    });
+  }
+
+  Future<void> _initializeSpeech() async {
+    try {
+      await _speechToText.initialize(
+        onError: (error) {
+          print('Error: $error');
+          setState(() => _isListening = false);
+        },
+        onStatus: (status) {
+          print('Status: $status');
+        },
+      );
+    } catch (e) {
+      print('Failed to initialize speech to text: $e');
+    }
+  }
+
+  void _startListening() async {
+    if (!_isListening && _speechToText.isAvailable) {
+      // Haptic feedback when starting
+      HapticFeedback.heavyImpact();
+
+      setState(() => _isListening = true);
+      setState(() {
+        _statusMessage = "Listening...";
+      });
+      _speechToText.listen(
+        onResult: (result) {
+          setState(() {
+            _transcript = result.recognizedWords;
+          });
+        },
+        onSoundLevelChange: (level) {
+          setState(() {
+            _soundLevel = level;
+          });
+          // Trigger ripple animation on sound level change
+          _rippleController.forward(from: 0.0);
+        },
+        localeId: 'en_US',
+      );
+    }
+  }
+
+  void _stopListening() async {
+    if (_isListening) {
+      await _speechToText.stop();
+      // Haptic feedback when stopping
+      HapticFeedback.mediumImpact();
+      setState(() {
+        _isListening = false;
+        _soundLevel = 0.0;
+        _dragOffset = 0.0;
+      });
+
+      // Process the transcript if not empty
+      if (_transcript.isNotEmpty) {
+        _statusMessage = "Processing...";
+        await _processTranscript();
+      }
+      refreshMessage();
+    }
+  }
+
+  void _cancelListening() async {
+    if (_isListening) {
+      await _speechToText.cancel();
+      // Strong haptic feedback when canceling
+      HapticFeedback.heavyImpact();
+      setState(() {
+        _isListening = false;
+        _soundLevel = 0.0;
+        _dragOffset = 0.0;
+        _transcript = '';
+        _statusMessage = 'Listening canceled';
+      });
+
+      // Clear status message after 1 second
+      await Future.delayed(const Duration(seconds: 1));
+      refreshMessage();
+    }
+  }
+
+  Future<void> _processTranscript() async {
+    if (_transcript.isEmpty) return;
+
+    setState(() {
+      _isProcessing = true;
+      _statusMessage = 'Parsing with AI...';
+    });
+
+    try {
+      // Step 1: Parse transcript with Gemini
+      final transaction = await _geminiService.parseTranscriptToTransaction(
+        _transcript,
+      );
+
+      setState(() {
+        _statusMessage = 'Creating transaction...';
+      });
+
+      // Step 2: Create transaction via API
+      await _transactionService.createTransaction(transaction);
+
+      setState(() {
+        _statusMessage = 'Transaction created! ✓';
+        _transcript = '';
+        _isProcessing = false;
+      });
+
+      // Clear status message after 2 seconds
+      await Future.delayed(const Duration(seconds: 2));
+      refreshMessage();
+    } catch (e) {
+      setState(() {
+        _statusMessage = 'Error: ${e.toString()}';
+        _isProcessing = false;
+      });
+
+      // Clear error message after 3 seconds
+      await Future.delayed(const Duration(seconds: 3));
+    }
+  }
+
+  // void _clearTranscript() {
+  //   setState(() {
+  //     _transcript = '';
+  //     _statusMessage = '';
+  //   });
+  // }
+
+  @override
+  void dispose() {
+    _speechToText.cancel();
+    _rippleController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Home Page')),
-      body: Center(
-        child: ElevatedButton(
-          child: const Text('Go to Second Page'),
-          onPressed: () {
-            // Push the new route onto the navigation stack
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => const TransactionsPage()),
-            );
-          },
-        ),
+      body: _selectedIndex == 0
+          ? SafeArea(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Transcript text at the top
+                  Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Transcript',
+                          style: Theme.of(context).textTheme.labelSmall
+                              ?.copyWith(
+                                color: Theme.of(context).colorScheme.outline,
+                              ),
+                        ),
+                        const SizedBox(height: 8),
+                        if (_transcript.isEmpty)
+                          Text(
+                            'Hold the mic button and start speaking...',
+                            style: Theme.of(context).textTheme.bodyLarge
+                                ?.copyWith(
+                                  fontStyle: FontStyle.italic,
+                                  color: Theme.of(context).colorScheme.outline,
+                                ),
+                          )
+                        else
+                          Text(
+                            _transcript,
+                            style: Theme.of(context).textTheme.bodyLarge,
+                          ),
+                      ],
+                    ),
+                  ),
+                  // Horizontal Stack
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24),
+                    child: Row(
+                      children: [
+                        // Status message and Clear button
+                        if (_statusMessage.isNotEmpty)
+                          Expanded(
+                            child: Text(
+                              _statusMessage,
+                              style: Theme.of(context).textTheme.bodyMedium
+                                  ?.copyWith(
+                                    color: _statusMessage.contains('Error')
+                                        ? Theme.of(context).colorScheme.error
+                                        : Theme.of(context).colorScheme.primary,
+                                  ),
+                            ),
+                          ),
+                        Spacer(),
+                        // if (_transcript.isNotEmpty)
+                        //   TextButton.icon(
+                        //     onPressed: _clearTranscript,
+                        //     icon: const Icon(Icons.clear),
+                        //     label: const Text('Clear'),
+                        //   ),
+                      ],
+                    ),
+                  ),
+                  // Spacer to push button to bottom
+                  Spacer(),
+                  // Mic button at the bottom
+                  // bottom padding by 120
+                  Padding(
+                    padding: EdgeInsets.only(bottom: 96),
+                    child: Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          // if (_isListening)
+                          //   Column(
+                          //     children: [
+                          //       const SizedBox(height: 16),
+                          //       ,
+                          //     ],
+                          //   ),
+                          GestureDetector(
+                            onLongPressStart: !_isProcessing
+                                ? (_) => _startListening()
+                                : null,
+                            onLongPressEnd: !_isProcessing
+                                ? (_) {
+                                    if (_dragOffset >= _cancelThreshold) {
+                                      _cancelListening();
+                                    } else {
+                                      _stopListening();
+                                    }
+                                  }
+                                : null,
+                            onLongPressMoveUpdate: _isListening
+                                ? (details) {
+                                    setState(() {
+                                      _dragOffset = details.offsetFromOrigin.dy
+                                          .clamp(0.0, double.infinity);
+                                    });
+
+                                    // Haptic feedback when crossing threshold
+                                    if (_dragOffset >= _cancelThreshold &&
+                                        details.offsetFromOrigin.dy <
+                                            _cancelThreshold + 5) {
+                                      HapticFeedback.heavyImpact();
+                                    }
+                                  }
+                                : null,
+                            child: Transform.translate(
+                              offset: Offset(0, _dragOffset),
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                spacing: 12,
+                                children: [
+                                  if (_isListening)
+                                    Text(
+                                      "Drag down to cancel",
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .bodyMedium
+                                          ?.copyWith(
+                                            color:
+                                                _dragOffset >= _cancelThreshold
+                                                ? Theme.of(
+                                                    context,
+                                                  ).colorScheme.error
+                                                : Theme.of(
+                                                    context,
+                                                  ).colorScheme.primary,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                    ),
+                                  Stack(
+                                    alignment: Alignment.center,
+                                    children: [
+                                      // Sound ripple layers
+                                      if (_isListening)
+                                        AnimatedBuilder(
+                                          animation: _rippleController,
+                                          builder: (context, child) {
+                                            final rippleOpacity =
+                                                (1.0 - _rippleController.value)
+                                                    .clamp(0.0, 1.0);
+                                            final rippleScale =
+                                                1.0 +
+                                                (_rippleController.value *
+                                                    0.5) +
+                                                (_soundLevel / 100.0 * 0.3);
+                                            return Opacity(
+                                              opacity: rippleOpacity,
+                                              child: Transform.scale(
+                                                scale: rippleScale,
+                                                child: Container(
+                                                  width: 96,
+                                                  height: 96,
+                                                  decoration: BoxDecoration(
+                                                    shape: BoxShape.circle,
+                                                    border: Border.all(
+                                                      color: Theme.of(context)
+                                                          .colorScheme
+                                                          .primary
+                                                          .withOpacity(0.3),
+                                                      width: 2,
+                                                    ),
+                                                  ),
+                                                ),
+                                              ),
+                                            );
+                                          },
+                                        ),
+                                      InkWell(
+                                        customBorder: const CircleBorder(),
+                                        child: Ink(
+                                          decoration: BoxDecoration(
+                                            shape: BoxShape.circle,
+                                            color:
+                                                _dragOffset >= _cancelThreshold
+                                                ? Theme.of(
+                                                    context,
+                                                  ).colorScheme.errorContainer
+                                                : Theme.of(context)
+                                                      .colorScheme
+                                                      .primaryContainer,
+                                          ),
+                                          padding: const EdgeInsets.all(24),
+                                          child: Icon(
+                                            _isProcessing
+                                                ? Icons.hourglass_bottom
+                                                : (_isListening &&
+                                                          _dragOffset >=
+                                                              _cancelThreshold
+                                                      ? Icons.close
+                                                      : Icons.mic),
+                                            size: 48,
+                                            color: _isProcessing
+                                                ? Theme.of(
+                                                    context,
+                                                  ).colorScheme.outline
+                                                : (_isListening &&
+                                                          _dragOffset >=
+                                                              _cancelThreshold
+                                                      ? Theme.of(
+                                                          context,
+                                                        ).colorScheme.error
+                                                      : _isListening
+                                                      ? Theme.of(
+                                                          context,
+                                                        ).colorScheme.primary
+                                                      : Theme.of(
+                                                          context,
+                                                        ).colorScheme.primary),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                              // child: ,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            )
+          : const TransactionsPage(),
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: _selectedIndex,
+        onDestinationSelected: (int index) {
+          setState(() {
+            _selectedIndex = index;
+          });
+        },
+        destinations: const [
+          NavigationDestination(icon: Icon(Icons.mic), label: 'Jura AI'),
+          NavigationDestination(icon: Icon(Icons.list), label: 'Transactions'),
+        ],
       ),
     );
   }

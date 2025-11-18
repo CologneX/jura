@@ -17,13 +17,6 @@ class TransactionState extends ChangeNotifier {
   String? get error => _error;
   bool get hasError => _error != null;
 
-  // Sorted getters
-  List<Transaction> get transactionsSortedByDate {
-    final sorted = [..._transactions];
-    sorted.sort((a, b) => b.date.compareTo(a.date));
-    return sorted;
-  }
-
   double get totalExpenses {
     return _transactions
         .where((t) => t.type.toLowerCase() == 'expense')
@@ -56,26 +49,10 @@ class TransactionState extends ChangeNotifier {
     }
   }
 
-  Future<void> createTransaction({
-    required String type,
-    required double amount,
-    required String currency,
-    required DateTime date,
-    String? category,
-    String? subcategory,
-    String notes = '',
-    String paymentMethod = 'cash',
-  }) async {
+  Future<void> createTransaction(CreateTransaction createTransaction) async {
     try {
       final transaction = await _transactionService.createTransaction(
-        type: type,
-        amount: amount,
-        currency: currency,
-        date: date,
-        category: category,
-        subcategory: subcategory,
-        notes: notes,
-        paymentMethod: paymentMethod,
+        createTransaction,
       );
       _transactions.add(transaction);
       _error = null;
@@ -110,7 +87,7 @@ class TransactionState extends ChangeNotifier {
         notes: notes,
         paymentMethod: paymentMethod,
       );
-      
+
       final index = _transactions.indexWhere((t) => t.id == transactionId);
       if (index != -1) {
         _transactions[index] = updatedTransaction;
