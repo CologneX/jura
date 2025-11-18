@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "929995453956",
+    "project_id": "jura-5d4a8",
+    "storage_bucket": "jura-5d4a8.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:929995453956:android:cc3dc94655518eea606751",
+        "android_client_info": {
+          "package_name": "com.cologne.jura"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBmqkIkNzOi9ygaMfY412CaxB21EMSNJkc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
