@@ -1,13 +1,12 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:get_it/get_it.dart';
+import 'package:go_router/go_router.dart';
 import 'package:motion_toast/motion_toast.dart';
-import 'package:jura/routes.dart';
 import 'package:jura/services/auth_service.dart';
-import 'package:jura/state/auth_state.dart';
 
 class LoginPage extends StatefulWidget {
   final String? prefillEmail;
-
   const LoginPage({super.key, this.prefillEmail});
 
   @override
@@ -15,16 +14,17 @@ class LoginPage extends StatefulWidget {
 }
 
 class _LoginPageState extends State<LoginPage> {
-  late AuthState _authState;
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _authService = GetIt.I<AuthService>();
   bool _showPassword = false;
-  bool _rememberMe = false;
+  bool _isLoading = false;
+
 
   @override
   void initState() {
     super.initState();
-    _authState = AuthState(AuthService());
+    _authService.init();
     if (widget.prefillEmail != null) {
       _emailController.text = widget.prefillEmail!;
     }
@@ -38,8 +38,9 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   bool _isValidEmail(String email) {
-    final emailRegex =
-        RegExp(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$');
+    final emailRegex = RegExp(
+      r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$',
+    );
     return emailRegex.hasMatch(email);
   }
 
@@ -67,19 +68,21 @@ class _LoginPageState extends State<LoginPage> {
       ).show(context);
       return;
     }
-
-    await _authState.login(
-      email: _emailController.text,
-      password: _passwordController.text,
-    );
-
-    if (mounted && _authState.isAuthenticated) {
-      Navigator.of(context).pushReplacementNamed(AppRoutes.home);
-    } else if (mounted && _authState.hasError) {
-      MotionToast.error(
-        title: const Text('Login Failed'),
-        description: Text(_authState.error ?? 'Login failed'),
-      ).show(context);
+    setState(() => _isLoading = true);
+    try {
+      await _authService.login(
+        email: _emailController.text,
+        password: _passwordController.text,
+      );
+    } catch (e) {
+      if (mounted) {
+        MotionToast.error(
+          title: const Text('Login Failed'),
+          description: Text(e.toString()),
+        ).show(context);
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -88,7 +91,7 @@ class _LoginPageState extends State<LoginPage> {
     return Scaffold(
       body: SafeArea(
         child: ListenableBuilder(
-          listenable: _authState,
+          listenable: _authService,
           builder: (context, child) {
             return SingleChildScrollView(
               child: Padding(
@@ -102,8 +105,6 @@ class _LoginPageState extends State<LoginPage> {
                     _buildEmailField(),
                     const SizedBox(height: 20),
                     _buildPasswordField(),
-                    const SizedBox(height: 12),
-                    _buildRememberMeCheckbox(),
                     const SizedBox(height: 32),
                     _buildLoginButton(),
                     const SizedBox(height: 24),
@@ -124,9 +125,9 @@ class _LoginPageState extends State<LoginPage> {
       children: [
         Text(
           'Welcome Back',
-          style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-            fontWeight: FontWeight.bold,
-          ),
+          style: Theme.of(
+            context,
+          ).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 8),
         Text(
@@ -145,9 +146,9 @@ class _LoginPageState extends State<LoginPage> {
       children: [
         Text(
           'Email Address',
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-            fontWeight: FontWeight.w600,
-          ),
+          style: Theme.of(
+            context,
+          ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
         ),
         const SizedBox(height: 8),
         TextField(
@@ -155,9 +156,7 @@ class _LoginPageState extends State<LoginPage> {
           decoration: InputDecoration(
             hintText: 'your@email.com',
             prefixIcon: const Icon(Icons.email),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
           ),
           keyboardType: TextInputType.emailAddress,
           textInputAction: TextInputAction.next,
@@ -173,9 +172,9 @@ class _LoginPageState extends State<LoginPage> {
       children: [
         Text(
           'Password',
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-            fontWeight: FontWeight.w600,
-          ),
+          style: Theme.of(
+            context,
+          ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
         ),
         const SizedBox(height: 8),
         TextField(
@@ -189,44 +188,11 @@ class _LoginPageState extends State<LoginPage> {
               ),
               onPressed: () => setState(() => _showPassword = !_showPassword),
             ),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
           ),
           obscureText: !_showPassword,
           textInputAction: TextInputAction.done,
           onSubmitted: (_) => _login(),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildRememberMeCheckbox() {
-    return Row(
-      children: [
-        Checkbox(
-          value: _rememberMe,
-          onChanged: (value) => setState(() => _rememberMe = value ?? false),
-        ),
-        Text(
-          'Remember me',
-          style: Theme.of(context).textTheme.bodyMedium,
-        ),
-        const Spacer(),
-        TextButton(
-          onPressed: () {
-            MotionToast.info(
-              title: const Text('Coming Soon'),
-              description: const Text('Forgot password feature coming soon'),
-            ).show(context);
-          },
-          child: Text(
-            'Forgot password?',
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: Theme.of(context).colorScheme.primary,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
         ),
       ],
     );
@@ -237,8 +203,8 @@ class _LoginPageState extends State<LoginPage> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         ElevatedButton(
-          onPressed: _authState.isLoading ? null : _login,
-          child: _authState.isLoading
+          onPressed: _isLoading ? null : _login,
+          child: _isLoading
               ? const SizedBox(
                   height: 20,
                   width: 20,
@@ -265,7 +231,7 @@ class _LoginPageState extends State<LoginPage> {
               ),
               recognizer: TapGestureRecognizer()
                 ..onTap = () {
-                  Navigator.of(context).pushReplacementNamed(AppRoutes.register);
+                  context.go('/register');
                 },
             ),
           ],

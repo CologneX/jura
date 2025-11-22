@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:jura/transactions_page.dart';
+import 'package:jura/pages/transactions_page.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
-import 'package:jura/services/gemini_service.dart';
 import 'package:jura/services/transaction_service.dart';
 
 class HomePage extends StatefulWidget {
@@ -20,7 +19,6 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   bool _isProcessing = false;
   String _statusMessage = "";
   late AnimationController _rippleController;
-  final GeminiService _geminiService = GeminiService();
   final TransactionService _transactionService = TransactionService();
   int _selectedIndex = 0;
   double _dragOffset = 0.0;
@@ -134,20 +132,16 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     });
 
     try {
-      // Step 1: Parse transcript with Gemini
-      final transaction = await _geminiService.parseTranscriptToTransaction(
+      setState(() {
+        _statusMessage = 'Jura AI is processing, please wait hehe...';
+      });
+
+      final transaction = await _transactionService.processTranscriptGemini(
         _transcript,
       );
 
       setState(() {
-        _statusMessage = 'Creating transaction...';
-      });
-
-      // Step 2: Create transaction via API
-      await _transactionService.createTransaction(transaction);
-
-      setState(() {
-        _statusMessage = 'Transaction created! ✓';
+        _statusMessage = transaction;
         _transcript = '';
         _isProcessing = false;
       });
@@ -165,13 +159,6 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
       await Future.delayed(const Duration(seconds: 3));
     }
   }
-
-  // void _clearTranscript() {
-  //   setState(() {
-  //     _transcript = '';
-  //     _statusMessage = '';
-  //   });
-  // }
 
   @override
   void dispose() {

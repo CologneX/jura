@@ -4,7 +4,7 @@ class ApiConfig {
   static late String _baseUrl;
 
   /// Initialize the API configuration by loading the base URL from environment variables
-  static void initialize() {
+  static void init() {
     final endpoint = dotenv.env['ENDPOINT_URL'];
     if (endpoint == null || endpoint.isEmpty) {
       throw Exception('ENDPOINT_URL not found in .env file');

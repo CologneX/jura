@@ -1,12 +1,5 @@
 import 'package:intl/intl.dart';
 
-/// Formats numeric amounts as currency strings using `intl`.
-///
-/// Usage:
-/// ```dart
-/// formatCurrency(12.5); // -> $12.50 (depending on locale)
-/// formatCurrency(12.5, currencyCode: 'EUR'); // -> €12.50
-/// ```
 String formatCurrency(num? amount, {String? locale, String? currencyCode}) {
   if (amount == null) return '';
   try {

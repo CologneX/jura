@@ -1,17 +1,12 @@
 import 'dart:convert';
+import 'package:get_it/get_it.dart';
 import 'package:jura/config/api_config.dart';
 import 'package:jura/services/protected_api.dart';
 import 'package:jura/models/transaction.dart';
 import 'package:jura/models/api_response.dart';
 
 class TransactionService {
-
-  final ProtectedApiClient _apiClient;
-
-  TransactionService({ProtectedApiClient? apiClient})
-    : _apiClient = apiClient ?? ProtectedApiClient();
-
-  // ProtectedApiClient attaches tokens and handles refresh.
+  final ProtectedApiClient _apiClient = GetIt.instance<ProtectedApiClient>();
 
   Future<List<Transaction>> fetchTransactions() async {
     try {
@@ -67,7 +62,9 @@ class TransactionService {
     }
   }
 
-  Future<Transaction> createTransaction(CreateTransaction createTransaction) async {
+  Future<Transaction> createTransaction(
+    CreateTransaction createTransaction,
+  ) async {
     try {
       final body = json.encode(createTransaction.toJson());
       final response = await _apiClient
@@ -135,7 +132,10 @@ class TransactionService {
         'payment_method': paymentMethod,
       });
       final response = await _apiClient
-          .put(Uri.parse('${ApiConfig.baseUrl}/transactions/$transactionId'), body: body)
+          .put(
+            Uri.parse('${ApiConfig.baseUrl}/transactions/$transactionId'),
+            body: body,
+          )
           .timeout(
             const Duration(seconds: 30),
             onTimeout: () => throw Exception('Request timeout'),
@@ -188,6 +188,54 @@ class TransactionService {
       rethrow;
     } catch (e) {
       throw Exception('Error deleting transaction: $e');
+    }
+  }
+
+  Future<String> processTranscriptGemini(String transcript) async {
+    try {
+      final body = json.encode({'prompt': transcript});
+      final response = await _apiClient
+          .post(
+            Uri.parse('${ApiConfig.baseUrl}/transactions/ai/process'),
+            body: body,
+          )
+          .timeout(
+            const Duration(seconds: 60),
+            onTimeout: () => throw Exception('Request timeout'),
+          );
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> jsonResponse =
+            json.decode(response.body) as Map<String, dynamic>;
+
+        // display the data
+        final apiResponse = ApiResponse<String>.fromJson(
+          jsonResponse,
+          (data) => data as String,
+        );
+
+        if (apiResponse.success && apiResponse.data != null) {
+          return apiResponse.data!;
+        } else {
+          throw Exception(
+            apiResponse.message ?? 'Failed to process transcript',
+          );
+        }
+      } else {
+        try {
+          final errorResponse = ErrorResponse.fromJson(
+            json.decode(response.body) as Map<String, dynamic>,
+          );
+          throw Exception(errorResponse.displayMessage);
+        } catch (e) {
+          throw Exception(
+            'Failed to process transcript: ${response.statusCode}',
+          );
+        }
+      }
+    } on UnauthorizedException {
+      rethrow;
+    } catch (e) {
+      throw Exception('Error processing transcript: $e');
     }
   }
 }

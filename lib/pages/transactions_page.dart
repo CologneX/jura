@@ -29,14 +29,6 @@ class _TransactionsPageState extends State<TransactionsPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // appBar: AppBar(
-      //   actions: [
-      //     IconButton(
-      //       icon: const Icon(Icons.refresh),
-      //       onPressed: _loadTransactions,
-      //     ),
-      //   ],
-      // ),
       body: SafeArea(
         child: ListenableBuilder(
           listenable: _transactionState,

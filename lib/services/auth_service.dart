@@ -1,20 +1,46 @@
 import 'dart:convert';
+import 'dart:developer';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:jura/config/api_config.dart';
 import 'package:jura/models/auth.dart';
 import 'package:jura/models/api_response.dart';
+import 'package:jura/services/protected_api.dart';
 
-class AuthService {
+enum AuthStatus { initial, authenticated, unauthenticated }
+
+class AuthService extends ChangeNotifier {
+  late final ProtectedApiClient apiClient; 
   static const String _accessTokenKey = 'access_token';
   static const String _refreshTokenKey = 'refresh_token';
 
   final http.Client _httpClient;
   final FlutterSecureStorage _secureStorage;
 
+  AuthStatus _status = AuthStatus.initial;
+  AuthStatus get status => _status;
+
   AuthService({http.Client? httpClient, FlutterSecureStorage? secureStorage})
     : _httpClient = httpClient ?? http.Client(),
       _secureStorage = secureStorage ?? const FlutterSecureStorage();
+
+  Future<void> init() async {
+    try {
+      final accessToken = await _secureStorage.read(key: _accessTokenKey);
+      final refreshToken = await _secureStorage.read(key: _refreshTokenKey);
+
+      if (accessToken != null && refreshToken != null) {
+        _status = AuthStatus.authenticated;
+      } else {
+        _status = AuthStatus.unauthenticated;
+      }
+    } catch (e) {
+      // Fallback on storage read error
+      _status = AuthStatus.unauthenticated;
+    }
+    notifyListeners();
+  }
 
   Map<String, String> _getHeaders({String? token}) {
     final headers = <String, String>{
@@ -43,33 +69,6 @@ class AuthService {
     }
   }
 
-  Future<String?> getAccessToken() async {
-    try {
-      return await _secureStorage.read(key: _accessTokenKey);
-    } catch (e) {
-      print('Error retrieving access token: $e');
-      return null;
-    }
-  }
-
-  Future<String?> getRefreshToken() async {
-    try {
-      return await _secureStorage.read(key: _refreshTokenKey);
-    } catch (e) {
-      print('Error retrieving refresh token: $e');
-      return null;
-    }
-  }
-
-  Future<bool> isAuthenticated() async {
-    try {
-      final token = await getAccessToken();
-      return token != null && token.isNotEmpty;
-    } catch (e) {
-      return false;
-    }
-  }
-
   Future<void> register({
     required String name,
     required String email,
@@ -92,19 +91,21 @@ class AuthService {
             const Duration(seconds: 30),
             onTimeout: () => throw Exception('Request timeout'),
           );
-
       if (response.statusCode != 201) {
         final errorResponse = ErrorResponse.fromJson(
           json.decode(response.body) as Map<String, dynamic>,
         );
         throw Exception(errorResponse.displayMessage);
       }
+      
+      // Redirect to login with prefilled email could be handled here if needed
+      // context.go('/login?email=$email');
     } catch (e) {
       throw Exception(e.toString());
     }
   }
 
-  Future<LoginResponse> login({
+  Future<void> login({
     required String email,
     required String password,
   }) async {
@@ -142,7 +143,8 @@ class AuthService {
           accessToken: apiResponse.data!.accessToken,
           refreshToken: apiResponse.data!.refreshToken,
         );
-        return apiResponse.data!;
+        _status = AuthStatus.authenticated;
+        notifyListeners();
       } else {
         throw Exception(apiResponse.message ?? 'Login failed');
       }
@@ -153,20 +155,11 @@ class AuthService {
 
   Future<void> logout() async {
     try {
-      await Future.wait([
-        _secureStorage.delete(key: _accessTokenKey),
-        _secureStorage.delete(key: _refreshTokenKey),
-      ]);
+      _secureStorage.deleteAll();
+      _status = AuthStatus.unauthenticated;
+      notifyListeners();
     } catch (e) {
-      print('Error during logout: $e');
-    }
-  }
-
-  Future<void> clearTokens() async {
-    try {
-      await _secureStorage.deleteAll();
-    } catch (e) {
-      print('Error clearing tokens: $e');
+      log('Error during logout: $e');
     }
   }
 }
