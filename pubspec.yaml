@@ -44,6 +44,7 @@ dependencies:
   skeletonizer: ^2.1.0+1
   go_router: ^17.0.0
   get_it: ^9.1.0
+  pinput: ^6.0.0
 
 dev_dependencies:
   flutter_test:

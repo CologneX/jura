@@ -4,7 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:jura/pages/home_page.dart';
 import 'package:jura/pages/login_page.dart';
 import 'package:jura/pages/register_page.dart';
-import 'package:jura/pages/transactions_page.dart';
+import 'package:jura/pages/journal_page.dart';
 import 'package:jura/services/auth_service.dart';
 
 GoRouter createRouter() {
@@ -21,9 +21,9 @@ GoRouter createRouter() {
         builder: (context, state) => const HomePage(),
       ),
       GoRoute(
-        name: 'transactions',
-        path: '/transactions',
-        builder: (context, state) => const TransactionsPage(),
+        name: 'journal',
+        path: '/journal',
+        builder: (context, state) => const JournalPage(),
       ),
       GoRoute(
         name: 'login',

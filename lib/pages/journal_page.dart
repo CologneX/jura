@@ -5,14 +5,14 @@ import 'package:jura/services/transaction_service.dart';
 import 'package:jura/state/transaction_state.dart';
 import 'package:skeletonizer/skeletonizer.dart';
 
-class TransactionsPage extends StatefulWidget {
-  const TransactionsPage({super.key});
+class JournalPage extends StatefulWidget {
+  const JournalPage({super.key});
 
   @override
-  State<TransactionsPage> createState() => _TransactionsPageState();
+  State<JournalPage> createState() => _JournalPageState();
 }
 
-class _TransactionsPageState extends State<TransactionsPage> {
+class _JournalPageState extends State<JournalPage> {
   late TransactionState _transactionState;
 
   @override

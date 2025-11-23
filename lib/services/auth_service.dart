@@ -11,7 +11,7 @@ import 'package:jura/services/protected_api.dart';
 enum AuthStatus { initial, authenticated, unauthenticated }
 
 class AuthService extends ChangeNotifier {
-  late final ProtectedApiClient apiClient; 
+  late final ProtectedApiClient apiClient;
   static const String _accessTokenKey = 'access_token';
   static const String _refreshTokenKey = 'refresh_token';
 
@@ -70,16 +70,11 @@ class AuthService extends ChangeNotifier {
   }
 
   Future<void> register({
-    required String name,
-    required String email,
-    required String password,
+    required String username,
+    required String passcode,
   }) async {
     try {
-      final body = json.encode({
-        'name': name,
-        'email': email,
-        'password': password,
-      });
+      final body = json.encode({'username': username, 'passcode': passcode});
 
       final response = await _httpClient
           .post(
@@ -97,7 +92,7 @@ class AuthService extends ChangeNotifier {
         );
         throw Exception(errorResponse.displayMessage);
       }
-      
+
       // Redirect to login with prefilled email could be handled here if needed
       // context.go('/login?email=$email');
     } catch (e) {
@@ -106,11 +101,11 @@ class AuthService extends ChangeNotifier {
   }
 
   Future<void> login({
-    required String email,
-    required String password,
+    required String username,
+    required String passcode,
   }) async {
     try {
-      final body = json.encode({'email': email, 'password': password});
+      final body = json.encode({'username': username, 'passcode': passcode});
 
       final response = await _httpClient
           .post(

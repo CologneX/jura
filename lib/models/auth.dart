@@ -1,14 +1,12 @@
 class User {
   final String id;
-  final String name;
-  final String email;
+  final String username;
   final DateTime createdAt;
   final DateTime updatedAt;
 
   User({
     required this.id,
-    required this.name,
-    required this.email,
+    required this.username,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -16,8 +14,7 @@ class User {
   factory User.fromJson(Map<String, dynamic> json) {
     return User(
       id: json['id'] as String,
-      name: json['name'] as String,
-      email: json['email'] as String,
+      username: json['username'] as String,
       createdAt: DateTime.parse(json['created_at'] as String),
       updatedAt: DateTime.parse(json['updated_at'] as String),
     );
@@ -25,8 +22,7 @@ class User {
 
   Map<String, dynamic> toJson() => {
     'id': id,
-    'name': name,
-    'email': email,
+    'username': username,
     'created_at': createdAt.toIso8601String(),
     'updated_at': updatedAt.toIso8601String(),
   };
@@ -56,10 +52,7 @@ class LoginResponse {
   final String accessToken;
   final String refreshToken;
 
-  LoginResponse({
-    required this.accessToken,
-    required this.refreshToken,
-  });
+  LoginResponse({required this.accessToken, required this.refreshToken});
 
   factory LoginResponse.fromJson(Map<String, dynamic> json) {
     return LoginResponse(

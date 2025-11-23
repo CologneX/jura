@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:jura/pages/transactions_page.dart';
+import 'package:jura/pages/journal_page.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 import 'package:jura/services/transaction_service.dart';
 
@@ -399,7 +399,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                 ],
               ),
             )
-          : const TransactionsPage(),
+          : const JournalPage(),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _selectedIndex,
         onDestinationSelected: (int index) {
