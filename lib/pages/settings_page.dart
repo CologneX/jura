@@ -1,13 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:get_it/get_it.dart';
 import 'package:jura/services/auth_service.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 
 class SettingsPage extends StatelessWidget {
   SettingsPage({super.key});
-
-  // initialize auth service
-  // AuthService _authService = AuthService();
-  final AuthService _authService = AuthService();
+  // get AuthService instance from GetIt
+  final _authService = GetIt.I<AuthService>();
   @override
   Widget build(BuildContext context) {
     return Scaffold(

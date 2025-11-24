@@ -150,11 +150,13 @@ class AuthService extends ChangeNotifier {
 
   Future<void> logout() async {
     try {
-      _secureStorage.deleteAll();
+      await _secureStorage.deleteAll();
       _status = AuthStatus.unauthenticated;
       notifyListeners();
     } catch (e) {
       log('Error during logout: $e');
+      _status = AuthStatus.unauthenticated;
+      notifyListeners();
     }
   }
 }

@@ -11,11 +11,12 @@ class BottomNavigationWrapper extends StatefulWidget {
   const BottomNavigationWrapper({super.key});
 
   @override
-  State<BottomNavigationWrapper> createState() => _BottomNavigationWrapperState();
+  State<BottomNavigationWrapper> createState() =>
+      _BottomNavigationWrapperState();
 }
 
 class _BottomNavigationWrapperState extends State<BottomNavigationWrapper> {
-  int _selectedIndex = 0;
+  int _selectedIndex = 1;
 
   @override
   Widget build(BuildContext context) {

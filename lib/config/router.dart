@@ -36,9 +36,8 @@ GoRouter createRouter() {
       GoRoute(
         name: 'login',
         path: '/login',
-        builder: (context, state) => LoginUsernamePage(
-          prefillUsername: state.extra as String?,
-        ),
+        builder: (context, state) =>
+            LoginUsernamePage(prefillUsername: state.extra as String?),
         routes: [
           GoRoute(
             name: 'login-pin',
