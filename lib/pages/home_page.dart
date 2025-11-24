@@ -228,7 +228,7 @@ class _AIPageState extends State<AIPage> with TickerProviderStateMixin {
                     'Hold the mic button and start speaking...',
                     style: theme.textTheme.large.copyWith(
                       fontStyle: FontStyle.italic,
-                      color: theme.colorScheme.input,
+                      color: theme.colorScheme.mutedForeground,
                     ),
                   )
                 else
