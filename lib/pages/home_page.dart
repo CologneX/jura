@@ -6,6 +6,7 @@ import 'package:jura/pages/journal_page.dart';
 import 'package:jura/pages/settings_page.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 import 'package:jura/services/transaction_service.dart';
+import 'package:shadcn_ui/shadcn_ui.dart';
 
 class BottomNavigationWrapper extends StatefulWidget {
   const BottomNavigationWrapper({super.key});
@@ -206,6 +207,7 @@ class _AIPageState extends State<AIPage> with TickerProviderStateMixin {
 
   @override
   Widget build(BuildContext context) {
+    final theme = ShadTheme.of(context);
     return SafeArea(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -218,23 +220,21 @@ class _AIPageState extends State<AIPage> with TickerProviderStateMixin {
               children: [
                 Text(
                   'Transcript',
-                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: Theme.of(context).colorScheme.outline,
-                  ),
+                  style: theme.textTheme.muted,
                 ),
                 const SizedBox(height: 8),
                 if (_transcript.isEmpty)
                   Text(
                     'Hold the mic button and start speaking...',
-                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                    style: theme.textTheme.large.copyWith(
                       fontStyle: FontStyle.italic,
-                      color: Theme.of(context).colorScheme.outline,
+                      color: theme.colorScheme.input,
                     ),
                   )
                 else
                   Text(
                     _transcript,
-                    style: Theme.of(context).textTheme.bodyLarge,
+                    style: theme.textTheme.large,
                   ),
               ],
             ),
@@ -249,14 +249,14 @@ class _AIPageState extends State<AIPage> with TickerProviderStateMixin {
                   Expanded(
                     child: Text(
                       _statusMessage,
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      style: theme.textTheme.small.copyWith(
                         color: _statusMessage.contains('Error')
-                            ? Theme.of(context).colorScheme.error
-                            : Theme.of(context).colorScheme.primary,
+                            ? theme.colorScheme.destructive
+                            : theme.colorScheme.primary,
                       ),
                     ),
                   ),
-                Spacer(),
+                const Spacer(),
               ],
             ),
           ),
@@ -309,11 +309,11 @@ class _AIPageState extends State<AIPage> with TickerProviderStateMixin {
                           if (_isListening)
                             Text(
                               "Drag down to cancel",
-                              style: Theme.of(context).textTheme.bodyMedium
-                                  ?.copyWith(
+                              style: theme.textTheme.small
+                                  .copyWith(
                                     color: _dragOffset >= _cancelThreshold
-                                        ? Theme.of(context).colorScheme.error
-                                        : Theme.of(context).colorScheme.primary,
+                                        ? theme.colorScheme.destructive
+                                        : theme.colorScheme.primary,
                                     fontWeight: FontWeight.w600,
                                   ),
                             ),
@@ -344,9 +344,7 @@ class _AIPageState extends State<AIPage> with TickerProviderStateMixin {
                                           decoration: BoxDecoration(
                                             shape: BoxShape.circle,
                                             border: Border.all(
-                                              color: Theme.of(context)
-                                                  .colorScheme
-                                                  .primary
+                                              color: theme.colorScheme.primary
                                                   .withOpacity(0.3),
                                               width: 2,
                                             ),
@@ -356,45 +354,32 @@ class _AIPageState extends State<AIPage> with TickerProviderStateMixin {
                                     );
                                   },
                                 ),
-                              InkWell(
-                                customBorder: const CircleBorder(),
-                                child: Ink(
-                                  decoration: BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    color: _dragOffset >= _cancelThreshold
-                                        ? Theme.of(
-                                            context,
-                                          ).colorScheme.errorContainer
-                                        : Theme.of(
-                                            context,
-                                          ).colorScheme.primaryContainer,
-                                  ),
-                                  padding: const EdgeInsets.all(24),
-                                  child: Icon(
-                                    _isProcessing
-                                        ? Icons.hourglass_bottom
-                                        : (_isListening &&
-                                                  _dragOffset >=
-                                                      _cancelThreshold
-                                              ? Icons.close
-                                              : Icons.mic),
-                                    size: 48,
-                                    color: _isProcessing
-                                        ? Theme.of(context).colorScheme.outline
-                                        : (_isListening &&
-                                                  _dragOffset >=
-                                                      _cancelThreshold
-                                              ? Theme.of(
-                                                  context,
-                                                ).colorScheme.error
-                                              : _isListening
-                                              ? Theme.of(
-                                                  context,
-                                                ).colorScheme.primary
-                                              : Theme.of(
-                                                  context,
-                                                ).colorScheme.primary),
-                                  ),
+                              Container(
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: _dragOffset >= _cancelThreshold
+                                      ? theme.colorScheme.destructive.withOpacity(0.1)
+                                      : theme.colorScheme.primary.withOpacity(0.1),
+                                ),
+                                padding: const EdgeInsets.all(24),
+                                child: Icon(
+                                  _isProcessing
+                                      ? Icons.hourglass_bottom
+                                      : (_isListening &&
+                                                _dragOffset >=
+                                                    _cancelThreshold
+                                          ? Icons.close
+                                          : Icons.mic),
+                                  size: 48,
+                                  color: _isProcessing
+                                      ? theme.colorScheme.input
+                                      : (_isListening &&
+                                                _dragOffset >=
+                                                    _cancelThreshold
+                                          ? theme.colorScheme.destructive
+                                          : _isListening
+                                          ? theme.colorScheme.primary
+                                          : theme.colorScheme.primary),
                                 ),
                               ),
                             ],
