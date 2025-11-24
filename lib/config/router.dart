@@ -3,7 +3,10 @@ import 'package:get_it/get_it.dart';
 import 'package:go_router/go_router.dart';
 import 'package:jura/pages/home_page.dart';
 import 'package:jura/pages/login_page.dart';
+import 'package:jura/pages/login_username_page.dart';
 import 'package:jura/pages/register_page.dart';
+import 'package:jura/pages/register_username_page.dart';
+import 'package:jura/pages/settings_page.dart';
 import 'package:jura/pages/journal_page.dart';
 import 'package:jura/services/auth_service.dart';
 
@@ -18,22 +21,49 @@ GoRouter createRouter() {
       GoRoute(
         name: 'home',
         path: '/',
-        builder: (context, state) => const HomePage(),
+        builder: (context, state) => BottomNavigationWrapper(),
+      ),
+      GoRoute(
+        name: 'profile',
+        path: '/profile',
+        builder: (context, state) => SettingsPage(),
       ),
       GoRoute(
         name: 'journal',
         path: '/journal',
-        builder: (context, state) => const JournalPage(),
+        builder: (context, state) => JournalPage(),
       ),
       GoRoute(
         name: 'login',
         path: '/login',
-        builder: (context, state) => const LoginPage(),
+        builder: (context, state) => LoginUsernamePage(
+          prefillUsername: state.extra as String?,
+        ),
+        routes: [
+          GoRoute(
+            name: 'login-pin',
+            path: 'pin',
+            builder: (context, state) {
+              final username = state.extra as String? ?? '';
+              return LoginPage(username: username);
+            },
+          ),
+        ],
       ),
       GoRoute(
         name: 'register',
         path: '/register',
-        builder: (context, state) => const RegisterPage(),
+        builder: (context, state) => RegisterUsernamePage(),
+        routes: [
+          GoRoute(
+            name: 'register-pin',
+            path: 'pin',
+            builder: (context, state) {
+              final username = state.extra as String? ?? '';
+              return RegisterPage(username: username);
+            },
+          ),
+        ],
       ),
       GoRoute(
         path: '/splash',
@@ -44,8 +74,8 @@ GoRouter createRouter() {
 
     redirect: (BuildContext context, GoRouterState state) {
       final status = authService.status;
-      final isLoggingIn = state.uri.toString() == '/login';
-      final isRegistering = state.uri.toString() == '/register';
+      final isLoggingIn = state.uri.toString().startsWith('/login');
+      final isRegistering = state.uri.toString().startsWith('/register');
       final isPublicRoute = isLoggingIn || isRegistering;
 
       // Case A: App is still checking tokens
