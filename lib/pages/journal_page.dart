@@ -15,16 +15,52 @@ class JournalPage extends StatefulWidget {
 
 class _JournalPageState extends State<JournalPage> {
   late TransactionState _transactionState;
+  late ScrollController _scrollController;
 
   @override
   void initState() {
     super.initState();
     _transactionState = TransactionState(TransactionService());
+    _scrollController = ScrollController();
+    _scrollController.addListener(_onScroll);
     _loadTransactions();
   }
 
-  Future<void> _loadTransactions() async {
-    await _transactionState.fetchTransactions();
+  @override
+  void dispose() {
+    _scrollController.removeListener(_onScroll);
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadTransactions({ListTransactionRequest? filter}) async {
+    await _transactionState.fetchTransactions(filter: filter);
+  }
+
+  void _onScroll() {
+    final currentIndex = (_scrollController.position.pixels /
+            (_scrollController.position.maxScrollExtent /
+                _transactionState.transactions.length))
+        .floor();
+
+    // Check if we've reached a multiple of 10 and there's more data to fetch
+    if (currentIndex > 0 &&
+        currentIndex % 10 == 0 &&
+        _transactionState.hasMoreData &&
+        !_transactionState.isLoadingMore) {
+      _transactionState.fetchMoreTransactions();
+    }
+  }
+
+  void _showFilterSheet(BuildContext context, ShadThemeData theme) {
+    showShadSheet(
+      context: context,
+      side: ShadSheetSide.bottom,
+      builder: (context) => _FilterSheet(
+        theme: theme,
+        onApplyFilters: (filter) => _loadTransactions(filter: filter),
+      ),
+    );
   }
 
   @override
@@ -94,37 +130,7 @@ class _JournalPageState extends State<JournalPage> {
               );
             }
 
-            // Empty state
-            if (_transactionState.transactions.isEmpty) {
-              return Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(24),
-                      decoration: BoxDecoration(
-                        color: theme.colorScheme.mutedForeground.withAlpha(20),
-                        shape: BoxShape.circle,
-                      ),
-                      child: Icon(
-                        LucideIcons.inbox,
-                        size: 56,
-                        color: theme.colorScheme.mutedForeground,
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-                    Text('No transactions yet', style: theme.textTheme.h4),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Start by adding your first transaction',
-                      style: theme.textTheme.muted,
-                    ),
-                  ],
-                ),
-              );
-            }
-
-            // Content with transactions
+            // Content with transactions (or empty state with summary cards)
             return _buildContent(
               theme: theme,
               totalIncome: _transactionState.totalIncome,
@@ -150,6 +156,7 @@ class _JournalPageState extends State<JournalPage> {
     return RefreshIndicator(
       onRefresh: onRefresh ?? () async {},
       child: CustomScrollView(
+        controller: _scrollController,
         slivers: [
           // Summary cards
           SliverToBoxAdapter(
@@ -191,29 +198,90 @@ class _JournalPageState extends State<JournalPage> {
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-              child: Text('Transactions', style: theme.textTheme.h4),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text('Transactions', style: theme.textTheme.h4),
+                  ShadIconButton.ghost(
+                    icon: Icon(LucideIcons.settings),
+                    onPressed: () => _showFilterSheet(context, theme),
+                  ),
+                ],
+              ),
             ),
           ),
-          // Transactions list
-          SliverPadding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            sliver: SliverList(
-              delegate: SliverChildBuilderDelegate((context, index) {
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: _TransactionCard(
-                    transaction: transactions[index],
-                    theme: theme,
-                    onTap: () => _showTransactionDetails(
-                      context,
-                      transactions[index],
-                      theme,
+          // Transactions list or empty state
+          if (transactions.isEmpty)
+            SliverToBoxAdapter(
+              child: Center(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 48),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(24),
+                        decoration: BoxDecoration(
+                          color: theme.colorScheme.mutedForeground.withAlpha(20),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          LucideIcons.inbox,
+                          size: 56,
+                          color: theme.colorScheme.mutedForeground,
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      Text('No transactions yet', style: theme.textTheme.h4),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Start by adding your first transaction',
+                        style: theme.textTheme.muted,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            )
+          else
+            SliverPadding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              sliver: SliverList(
+                delegate: SliverChildBuilderDelegate((context, index) {
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: _TransactionCard(
+                      transaction: transactions[index],
+                      theme: theme,
+                      onTap: () => _showTransactionDetails(
+                        context,
+                        transactions[index],
+                        theme,
+                      ),
+                    ),
+                  );
+                }, childCount: transactions.length),
+              ),
+            ),
+          // Loading indicator for pagination
+          if (_transactionState.isLoadingMore)
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                child: Center(
+                  child: SizedBox(
+                    height: 24,
+                    width: 24,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation<Color>(
+                        ShadTheme.of(context).colorScheme.primary,
+                      ),
                     ),
                   ),
-                );
-              }, childCount: transactions.length),
+                ),
+              ),
             ),
-          ),
           // Bottom padding
           const SliverToBoxAdapter(child: SizedBox(height: 16)),
         ],
@@ -520,13 +588,6 @@ class _TransactionDetailsSheet extends StatelessWidget {
               label: 'Payment Method',
               value: transaction.paymentMethod,
             ),
-            if (transaction.subcategory != null)
-              _DetailItem(
-                theme: theme,
-                icon: LucideIcons.tag,
-                label: 'Subcategory',
-                value: transaction.subcategory!,
-              ),
             if (transaction.notes.isNotEmpty) ...[
               SizedBox(
                 height: 1,
@@ -591,6 +652,182 @@ class _DetailItem extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _FilterSheet extends StatefulWidget {
+  final ShadThemeData theme;
+  final Function(ListTransactionRequest?) onApplyFilters;
+
+  const _FilterSheet({
+    required this.theme,
+    required this.onApplyFilters,
+  });
+
+  @override
+  State<_FilterSheet> createState() => _FilterSheetState();
+}
+
+class _FilterSheetState extends State<_FilterSheet> {
+  String? _selectedType;
+  String? _selectedCategory;
+  DateTime? _startDate;
+  DateTime? _endDate;
+  String? _minAmountText;
+  String? _maxAmountText;
+
+  void _applyFilters() {
+    final filter = ListTransactionRequest(
+      type: _selectedType,
+      category: _selectedCategory,
+      startDate: _startDate,
+      endDate: _endDate,
+      minAmount: _minAmountText != null ? double.tryParse(_minAmountText!) : null,
+      maxAmount: _maxAmountText != null ? double.tryParse(_maxAmountText!) : null,
+    );
+
+    widget.onApplyFilters(filter);
+    Navigator.of(context).pop();
+  }
+
+  void _resetFilters() {
+    setState(() {
+      _selectedType = null;
+      _selectedCategory = null;
+      _startDate = null;
+      _endDate = null;
+      _minAmountText = null;
+      _maxAmountText = null;
+    });
+    widget.onApplyFilters(null);
+    Navigator.of(context).pop();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ShadSheet(
+      title: const Text('Filters'),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            spacing: 16,
+            children: [
+              // Type filter
+              Text('Type', style: widget.theme.textTheme.small),
+              ShadSelect<String>(
+                placeholder: const Text('All types'),
+                initialValue: _selectedType,
+                options: const [
+                  ShadOption(value: 'income', child: Text('Income')),
+                  ShadOption(value: 'expense', child: Text('Expense')),
+                ],
+                selectedOptionBuilder: (context, value) => Text(value),
+                onChanged: (value) => setState(() => _selectedType = value),
+              ),
+              const SizedBox(height: 4),
+              // Category filter
+              Text('Category', style: widget.theme.textTheme.small),
+              ShadInput(
+                placeholder: const Text('Filter by category'),
+                onChanged: (value) => setState(() => _selectedCategory = value.isEmpty ? null : value),
+              ),
+              const SizedBox(height: 4),
+              // Date range
+              Text('Date Range', style: widget.theme.textTheme.small),
+              Row(
+                spacing: 12,
+                children: [
+                  Expanded(
+                    child: ShadButton.outline(
+                      child: Text(
+                        _startDate != null
+                            ? 'From: ${_startDate!.toString().split(' ')[0]}'
+                            : 'From',
+                      ),
+                      onPressed: () async {
+                        final picked = await showDatePicker(
+                          context: context,
+                          initialDate: _startDate ?? DateTime.now(),
+                          firstDate: DateTime(2000),
+                          lastDate: DateTime(2100),
+                        );
+                        if (picked != null) {
+                          setState(() => _startDate = picked);
+                        }
+                      },
+                    ),
+                  ),
+                  Expanded(
+                    child: ShadButton.outline(
+                      child: Text(
+                        _endDate != null
+                            ? 'To: ${_endDate!.toString().split(' ')[0]}'
+                            : 'To',
+                      ),
+                      onPressed: () async {
+                        final picked = await showDatePicker(
+                          context: context,
+                          initialDate: _endDate ?? DateTime.now(),
+                          firstDate: DateTime(2000),
+                          lastDate: DateTime(2100),
+                        );
+                        if (picked != null) {
+                          setState(() => _endDate = picked);
+                        }
+                      },
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 4),
+              // Amount range
+              Text('Amount Range', style: widget.theme.textTheme.small),
+              Row(
+                spacing: 12,
+                children: [
+                  Expanded(
+                    child: ShadInput(
+                      placeholder: const Text('Min'),
+                      keyboardType: TextInputType.number,
+                      onChanged: (value) => setState(() => _minAmountText = value.isEmpty ? null : value),
+                    ),
+                  ),
+                  Expanded(
+                    child: ShadInput(
+                      placeholder: const Text('Max'),
+                      keyboardType: TextInputType.number,
+                      onChanged: (value) => setState(() => _maxAmountText = value.isEmpty ? null : value),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              // Action buttons
+              Row(
+                spacing: 12,
+                children: [
+                  Expanded(
+                    child: ShadButton.outline(
+                      child: const Text('Reset'),
+                      onPressed: _resetFilters,
+                    ),
+                  ),
+                  Expanded(
+                    child: ShadButton(
+                      child: const Text('Apply'),
+                      onPressed: _applyFilters,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

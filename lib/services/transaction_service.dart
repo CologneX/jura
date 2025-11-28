@@ -8,10 +8,15 @@ import 'package:jura/models/api_response.dart';
 class TransactionService {
   final ProtectedApiClient _apiClient = GetIt.instance<ProtectedApiClient>();
 
-  Future<List<Transaction>> fetchTransactions() async {
+  Future<TransactionResponse> fetchTransactions({
+    ListTransactionRequest? filter,
+  }) async {
     try {
+      final request = filter ?? ListTransactionRequest();
+      final url = '${ApiConfig.baseUrl}/transactions${request.queryString}';
+
       final response = await _apiClient
-          .get(Uri.parse('${ApiConfig.baseUrl}/transactions'))
+          .get(Uri.parse(url))
           .timeout(
             const Duration(seconds: 30),
             onTimeout: () => throw Exception('Request timeout'),
@@ -21,17 +26,9 @@ class TransactionService {
         final Map<String, dynamic> jsonResponse =
             json.decode(response.body) as Map<String, dynamic>;
 
-        final apiResponse = ApiResponse<List<Transaction>>.fromJson(
+        final apiResponse = ApiResponse<TransactionResponse>.fromJson(
           jsonResponse,
-          (data) {
-            if (data is List) {
-              return data
-                  .cast<Map<String, dynamic>>()
-                  .map((json) => Transaction.fromJson(json))
-                  .toList();
-            }
-            throw Exception('Invalid data format');
-          },
+          (data) => TransactionResponse.fromJson(data as Map<String, dynamic>),
         );
 
         if (apiResponse.success && apiResponse.data != null) {
@@ -116,7 +113,6 @@ class TransactionService {
     required String currency,
     required DateTime date,
     String? category,
-    String? subcategory,
     String notes = '',
     String paymentMethod = 'cash',
   }) async {
@@ -127,7 +123,6 @@ class TransactionService {
         'currency': currency,
         'date': date.toIso8601String(),
         'category': category,
-        'subcategory': subcategory,
         'notes': notes,
         'payment_method': paymentMethod,
       });

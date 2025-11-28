@@ -7,15 +7,22 @@ class TransactionState extends ChangeNotifier {
 
   List<Transaction> _transactions = [];
   bool _isLoading = false;
+  bool _isLoadingMore = false;
   String? _error;
+  String? _nextCursor;
+  ListTransactionRequest? _currentFilter;
 
   TransactionState(this._transactionService);
 
   // Getters
   List<Transaction> get transactions => _transactions;
   bool get isLoading => _isLoading;
+  bool get isLoadingMore => _isLoadingMore;
   String? get error => _error;
   bool get hasError => _error != null;
+  String? get nextCursor => _nextCursor;
+  bool get hasMoreData => _nextCursor != null;
+  ListTransactionRequest? get currentFilter => _currentFilter;
 
   double get totalExpenses {
     return _transactions
@@ -29,22 +36,66 @@ class TransactionState extends ChangeNotifier {
         .fold(0, (sum, t) => sum + t.amount);
   }
 
-  Future<void> fetchTransactions() async {
+  Future<void> fetchTransactions({ListTransactionRequest? filter}) async {
     _isLoading = true;
     _error = null;
+    _nextCursor = null;
+    _transactions = [];
+    _currentFilter = filter;
     notifyListeners();
 
     try {
-      _transactions = await _transactionService.fetchTransactions();
+      final response = await _transactionService.fetchTransactions(
+        filter: filter,
+      );
+      _transactions = response.transactions;
+      _nextCursor = response.nextCursor;
       _error = null;
     } on UnauthorizedException catch (e) {
       _error = e.toString();
       _transactions = [];
+      _nextCursor = null;
     } catch (e) {
       _error = e.toString();
       _transactions = [];
+      _nextCursor = null;
     } finally {
       _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> fetchMoreTransactions() async {
+    if (_isLoadingMore || !hasMoreData) return;
+
+    _isLoadingMore = true;
+    notifyListeners();
+
+    try {
+      final filterWithCursor = _currentFilter != null
+          ? ListTransactionRequest(
+              type: _currentFilter!.type,
+              category: _currentFilter!.category,
+              startDate: _currentFilter!.startDate,
+              endDate: _currentFilter!.endDate,
+              minAmount: _currentFilter!.minAmount,
+              maxAmount: _currentFilter!.maxAmount,
+              cursor: _nextCursor,
+            )
+          : ListTransactionRequest(cursor: _nextCursor);
+
+      final response = await _transactionService.fetchTransactions(
+        filter: filterWithCursor,
+      );
+      _transactions.addAll(response.transactions);
+      _nextCursor = response.nextCursor;
+      _error = null;
+    } on UnauthorizedException catch (e) {
+      _error = e.toString();
+    } catch (e) {
+      _error = e.toString();
+    } finally {
+      _isLoadingMore = false;
       notifyListeners();
     }
   }
@@ -71,7 +122,6 @@ class TransactionState extends ChangeNotifier {
     required String currency,
     required DateTime date,
     String? category,
-    String? subcategory,
     String notes = '',
     String paymentMethod = 'cash',
   }) async {
@@ -83,7 +133,6 @@ class TransactionState extends ChangeNotifier {
         currency: currency,
         date: date,
         category: category,
-        subcategory: subcategory,
         notes: notes,
         paymentMethod: paymentMethod,
       );
