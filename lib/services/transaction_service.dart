@@ -28,7 +28,7 @@ class TransactionService {
 
         final apiResponse = ApiResponse<TransactionResponse>.fromJson(
           jsonResponse,
-          (data) => TransactionResponse.fromJson(data as Map<String, dynamic>),
+          (data) => TransactionResponse.fromJson(data),
         );
 
         if (apiResponse.success && apiResponse.data != null) {

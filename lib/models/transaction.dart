@@ -41,7 +41,10 @@ class ListTransactionRequest {
 
     // URL-encode each parameter to safely transmit dates and other values
     final entries = params.entries
-        .map((e) => '${Uri.encodeComponent(e.key)}=${Uri.encodeComponent(e.value.toString())}')
+        .map(
+          (e) =>
+              '${Uri.encodeComponent(e.key)}=${Uri.encodeComponent(e.value.toString())}',
+        )
         .join('&');
     return entries.isNotEmpty ? '?$entries' : '';
   }
@@ -185,10 +188,14 @@ class Transaction {
 /// Paginated response for transactions
 class TransactionResponse {
   final List<Transaction> transactions;
+  final double incomeSummary;
+  final double expenseSummary;
   final String? nextCursor;
 
   TransactionResponse({
     required this.transactions,
+    required this.incomeSummary,
+    required this.expenseSummary,
     this.nextCursor,
   });
 
@@ -200,6 +207,8 @@ class TransactionResponse {
 
     return TransactionResponse(
       transactions: transactionsList,
+      incomeSummary: json['income_summary'].toDouble(),
+      expenseSummary: json['expense_summary'].toDouble(),
       nextCursor: json['next_cursor'] as String?,
     );
   }

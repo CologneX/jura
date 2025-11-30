@@ -6,6 +6,8 @@ class TransactionState extends ChangeNotifier {
   final TransactionService _transactionService;
 
   List<Transaction> _transactions = [];
+  double _totalExpenses = 0.0;
+  double _totalIncome = 0.0;
   bool _isLoading = false;
   bool _isLoadingMore = false;
   String? _error;
@@ -24,17 +26,8 @@ class TransactionState extends ChangeNotifier {
   bool get hasMoreData => _nextCursor != null;
   ListTransactionRequest? get currentFilter => _currentFilter;
 
-  double get totalExpenses {
-    return _transactions
-        .where((t) => t.type.toLowerCase() == 'expense')
-        .fold(0, (sum, t) => sum + t.amount);
-  }
-
-  double get totalIncome {
-    return _transactions
-        .where((t) => t.type.toLowerCase() == 'income')
-        .fold(0, (sum, t) => sum + t.amount);
-  }
+  double get totalExpenses => _totalExpenses;
+  double get totalIncome => _totalIncome;
 
   Future<void> fetchTransactions({ListTransactionRequest? filter}) async {
     _isLoading = true;
@@ -50,6 +43,8 @@ class TransactionState extends ChangeNotifier {
       );
       _transactions = response.transactions;
       _nextCursor = response.nextCursor;
+      _totalIncome = response.incomeSummary;
+      _totalExpenses = response.expenseSummary;
       _error = null;
     } on UnauthorizedException catch (e) {
       _error = e.toString();
