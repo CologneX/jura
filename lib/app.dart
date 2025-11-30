@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:jura/config/router.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
@@ -12,12 +11,9 @@ class App extends StatefulWidget {
 }
 
 class _AppState extends State<App> {
-  late final GoRouter _router;
-
   @override
   void initState() {
     super.initState();
-    _router = createRouter();
   }
 
   @override
@@ -50,7 +46,7 @@ class _AppState extends State<App> {
         return MaterialApp.router(
           theme: Theme.of(context),
           debugShowCheckedModeBanner: false,
-          routerConfig: _router,
+          routerConfig: router,
           builder: (context, child) {
             return ShadAppBuilder(child: child);
           },
