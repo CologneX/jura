@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
 import 'package:go_router/go_router.dart';
-import 'package:jura/pages/AI_page.dart';
+import 'package:jura/pages/ai_page.dart';
 import 'package:jura/pages/login_page.dart';
 import 'package:jura/pages/login_username_page.dart';
 import 'package:jura/pages/navigation_wrapper.dart';
