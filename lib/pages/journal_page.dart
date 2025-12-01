@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'dart:async';
+import 'package:get_it/get_it.dart';
+import 'package:jura/services/tab_navigation_service.dart';
 import 'package:jura/models/transaction.dart';
 import 'package:jura/utils/formatters.dart';
 import 'package:jura/services/transaction_service.dart';
@@ -16,6 +19,7 @@ class JournalPage extends StatefulWidget {
 class _JournalPageState extends State<JournalPage> {
   late TransactionState _transactionState;
   late ScrollController _scrollController;
+  StreamSubscription? _tabSubscription;
 
   @override
   void initState() {
@@ -24,10 +28,17 @@ class _JournalPageState extends State<JournalPage> {
     _scrollController = ScrollController();
     _scrollController.addListener(_onScroll);
     _loadTransactions();
+
+    _tabSubscription = GetIt.I<TabNavigationService>().onTabChanged.listen((index) {
+      if (index == 0 && mounted) {
+        _loadTransactions();
+      }
+    });
   }
 
   @override
   void dispose() {
+    _tabSubscription?.cancel();
     _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
     super.dispose();

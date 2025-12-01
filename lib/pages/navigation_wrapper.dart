@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
+import 'package:get_it/get_it.dart';
+import 'package:jura/services/tab_navigation_service.dart';
 
 class BottomNavigationWrapper extends StatelessWidget {
   const BottomNavigationWrapper({
@@ -120,6 +122,7 @@ class BottomNavigationWrapper extends StatelessWidget {
   }
 
   void _onTap(BuildContext context, int index) {
+    GetIt.I<TabNavigationService>().switchTab(index);
     navigationShell.goBranch(
       index,
       initialLocation: index == navigationShell.currentIndex,
