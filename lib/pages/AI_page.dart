@@ -15,15 +15,20 @@ class AIPage extends StatefulWidget {
 
 class _AIPageState extends State<AIPage> with TickerProviderStateMixin {
   late stt.SpeechToText _speechToText;
-  String _transcript = '';
+  final TextEditingController _controller = TextEditingController();
+  final ScrollController _scrollController = ScrollController();
+
   bool _isListening = false;
   double _soundLevel = 0.0;
   bool _isProcessing = false;
-  String _statusMessage = "";
   late AnimationController _rippleController;
   final TransactionService _transactionService = TransactionService();
   double _dragOffset = 0.0;
   final double _cancelThreshold = 100.0;
+  String _textBeforeListening = '';
+
+  List<Map<String, dynamic>> _history = [];
+  final List<Map<String, String>> _messages = [];
 
   @override
   void initState() {
@@ -34,12 +39,6 @@ class _AIPageState extends State<AIPage> with TickerProviderStateMixin {
       duration: const Duration(milliseconds: 600),
     );
     _initializeSpeech();
-  }
-
-  void refreshMessage() {
-    setState(() {
-      _statusMessage = "";
-    });
   }
 
   Future<void> _initializeSpeech() async {
@@ -60,24 +59,26 @@ class _AIPageState extends State<AIPage> with TickerProviderStateMixin {
 
   void _startListening() async {
     if (!_isListening && _speechToText.isAvailable) {
-      // Haptic feedback when starting
       HapticFeedback.heavyImpact();
+      _textBeforeListening = _controller.text;
 
       setState(() => _isListening = true);
-      setState(() {
-        _statusMessage = "Listening...";
-      });
+
       _speechToText.listen(
         onResult: (result) {
           setState(() {
-            _transcript = result.recognizedWords;
+            String newText = result.recognizedWords;
+            if (_textBeforeListening.isNotEmpty) {
+              _controller.text = "$_textBeforeListening $newText";
+            } else {
+              _controller.text = newText;
+            }
           });
         },
         onSoundLevelChange: (level) {
           setState(() {
             _soundLevel = level;
           });
-          // Trigger ripple animation on sound level change
           _rippleController.forward(from: 0.0);
         },
         localeId: 'en_US',
@@ -88,83 +89,90 @@ class _AIPageState extends State<AIPage> with TickerProviderStateMixin {
   void _stopListening() async {
     if (_isListening) {
       await _speechToText.stop();
-      // Haptic feedback when stopping
       HapticFeedback.mediumImpact();
       setState(() {
         _isListening = false;
         _soundLevel = 0.0;
         _dragOffset = 0.0;
       });
-
-      // Process the transcript if not empty
-      if (_transcript.isNotEmpty) {
-        _statusMessage = "Processing...";
-        await _processTranscript();
-      }
-      refreshMessage();
     }
   }
 
   void _cancelListening() async {
     if (_isListening) {
       await _speechToText.cancel();
-      // Strong haptic feedback when canceling
       HapticFeedback.heavyImpact();
       setState(() {
         _isListening = false;
         _soundLevel = 0.0;
         _dragOffset = 0.0;
-        _transcript = '';
-        _statusMessage = 'Listening canceled';
+        _controller.text = _textBeforeListening; // Revert text
       });
-
-      // Clear status message after 1 second
-      await Future.delayed(const Duration(seconds: 1));
-      refreshMessage();
     }
   }
 
-  Future<void> _processTranscript() async {
-    if (_transcript.isEmpty) return;
+  void _clearHistory() {
+    setState(() {
+      _history.clear();
+      _messages.clear();
+    });
+  }
+
+  Future<void> _sendMessage() async {
+    final text = _controller.text.trim();
+    if (text.isEmpty) return;
 
     setState(() {
+      _messages.add({'role': 'user', 'content': text});
+      _messages.add({'role': 'loading', 'content': ''});
       _isProcessing = true;
-      _statusMessage = 'Parsing with AI...';
+      _controller.clear();
     });
 
-    try {
-      setState(() {
-        _statusMessage = 'Jura AI is processing, please wait hehe...';
-      });
+    _scrollToBottom();
 
-      final transaction = await _transactionService.processTranscriptGemini(
-        _transcript,
+    try {
+      final response = await _transactionService.processConversation(
+        text,
+        _history,
       );
 
       setState(() {
-        _statusMessage = transaction;
-        _transcript = '';
+        _messages.removeLast();
+        _messages.add({'role': 'model', 'content': response['message']});
+        _history = List<Map<String, dynamic>>.from(response['history']);
         _isProcessing = false;
       });
 
-      // Clear status message after 2 seconds
-      await Future.delayed(const Duration(seconds: 2));
-      refreshMessage();
+      _scrollToBottom();
     } catch (e) {
       setState(() {
-        _statusMessage = 'Error: ${e.toString()}';
+        _messages.removeLast();
+        _messages.add({'role': 'model', 'content': 'Error: ${e.toString()}'});
         _isProcessing = false;
       });
-
-      // Clear error message after 3 seconds
-      await Future.delayed(const Duration(seconds: 3));
+      _scrollToBottom();
     }
+  }
+
+  void _scrollToBottom() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_scrollController.hasClients) {
+        _scrollController.animateTo(
+          _scrollController.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      }
+    });
   }
 
   @override
   void dispose() {
     _speechToText.cancel();
     _rippleController.dispose();
+    _controller.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -172,185 +180,227 @@ class _AIPageState extends State<AIPage> with TickerProviderStateMixin {
   Widget build(BuildContext context) {
     final theme = ShadTheme.of(context);
     return SafeArea(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Transcript text at the top
+      child: GestureDetector(
+        onTap: () => FocusScope.of(context).unfocus(),
+        behavior: HitTestBehavior.opaque,
+        child: Column(
+          children: [
+          // Header
           Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('Transcript', style: theme.textTheme.muted),
-                const SizedBox(height: 8),
-                if (_transcript.isEmpty)
-                  Text(
-                    'Hold the mic button and start speaking...',
-                    style: theme.textTheme.large.copyWith(
-                      fontStyle: FontStyle.italic,
-                      color: theme.colorScheme.mutedForeground,
+                Text('Jura AI', style: theme.textTheme.h4),
+                ShadIconButton.ghost(
+                  icon: const Icon(Icons.delete_outline),
+                  onPressed: _messages.isEmpty ? null : _clearHistory,
+                ),
+              ],
+            ),
+          ),
+          // Chat Area
+          Expanded(
+            child: _messages.isEmpty
+                ? Center(
+                    child: Text(
+                      'Start a conversation with Jura AI',
+                      style: theme.textTheme.muted,
                     ),
                   )
-                else
-                  Text(_transcript, style: theme.textTheme.large),
-              ],
-            ),
-          ),
-          // Horizontal Stack
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24),
-            child: Row(
-              children: [
-                // Status message and Clear button
-                if (_statusMessage.isNotEmpty)
-                  Expanded(
-                    child: Text(
-                      _statusMessage,
-                      style: theme.textTheme.small.copyWith(
-                        color: _statusMessage.contains('Error')
-                            ? theme.colorScheme.destructive
-                            : theme.colorScheme.primary,
-                      ),
-                    ),
-                  ),
-                const Spacer(),
-              ],
-            ),
-          ),
-          // Spacer to push button to bottom
-          Spacer(),
-          // Mic button at the bottom
-          // bottom padding by 120
-          Padding(
-            padding: EdgeInsets.only(bottom: 96),
-            child: Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  GestureDetector(
-                    onLongPressStart: !_isProcessing
-                        ? (_) => _startListening()
-                        : null,
-                    onLongPressEnd: !_isProcessing
-                        ? (_) {
-                            if (_dragOffset >= _cancelThreshold) {
-                              _cancelListening();
-                            } else {
-                              _stopListening();
-                            }
-                          }
-                        : null,
-                    onLongPressMoveUpdate: _isListening
-                        ? (details) {
-                            setState(() {
-                              _dragOffset = details.offsetFromOrigin.dy.clamp(
-                                0.0,
-                                double.infinity,
-                              );
-                            });
+                : ListView.builder(
+                    controller: _scrollController,
+                    padding: const EdgeInsets.all(16),
+                    itemCount: _messages.length,
+                    itemBuilder: (context, index) {
+                      final msg = _messages[index];
+                      final isUser = msg['role'] == 'user';
+                      final isLoading = msg['role'] == 'loading';
 
-                            // Haptic feedback when crossing threshold
-                            if (_dragOffset >= _cancelThreshold &&
-                                details.offsetFromOrigin.dy <
-                                    _cancelThreshold + 5) {
-                              HapticFeedback.heavyImpact();
-                            }
-                          }
-                        : null,
-                    child: Transform.translate(
-                      offset: Offset(0, _dragOffset),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        spacing: 12,
-                        children: [
-                          if (_isListening)
-                            Text(
-                              "Drag down to cancel",
-                              style: theme.textTheme.small.copyWith(
-                                color: _dragOffset >= _cancelThreshold
-                                    ? theme.colorScheme.destructive
-                                    : theme.colorScheme.primary,
-                                fontWeight: FontWeight.w600,
+                      if (isLoading) {
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: Align(
+                            alignment: Alignment.centerLeft,
+                            child: ConstrainedBox(
+                              constraints: BoxConstraints(
+                                maxWidth:
+                                    MediaQuery.of(context).size.width * 0.8,
+                              ),
+                              child: const ShadCard(
+                                padding: EdgeInsets.all(12),
+                                child: SizedBox(
+                                  width: 24,
+                                  height: 24,
+                                  child:
+                                      CircularProgressIndicator(strokeWidth: 2),
+                                ),
                               ),
                             ),
-                          Stack(
-                            alignment: Alignment.center,
-                            children: [
-                              // Sound ripple layers
-                              if (_isListening)
-                                AnimatedBuilder(
-                                  animation: _rippleController,
-                                  builder: (context, child) {
-                                    final rippleOpacity =
-                                        (1.0 - _rippleController.value).clamp(
-                                          0.0,
-                                          1.0,
-                                        );
-                                    final rippleScale =
-                                        1.0 +
-                                        (_rippleController.value * 0.5) +
-                                        (_soundLevel / 100.0 * 0.3);
-                                    return Opacity(
-                                      opacity: rippleOpacity,
-                                      child: Transform.scale(
-                                        scale: rippleScale,
-                                        child: Container(
-                                          width: 96,
-                                          height: 96,
-                                          decoration: BoxDecoration(
-                                            shape: BoxShape.circle,
-                                            border: Border.all(
-                                              color: theme.colorScheme.primary
-                                                  .withOpacity(0.3),
-                                              width: 2,
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                    );
-                                  },
-                                ),
-                              Container(
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  color: _dragOffset >= _cancelThreshold
-                                      ? theme.colorScheme.destructive
-                                            .withOpacity(0.1)
-                                      : theme.colorScheme.primary.withOpacity(
-                                          0.1,
-                                        ),
-                                ),
-                                padding: const EdgeInsets.all(24),
-                                child: Icon(
-                                  _isProcessing
-                                      ? Icons.hourglass_bottom
-                                      : (_isListening &&
-                                                _dragOffset >= _cancelThreshold
-                                            ? Icons.close
-                                            : Icons.mic),
-                                  size: 48,
-                                  color: _isProcessing
-                                      ? theme.colorScheme.input
-                                      : (_isListening &&
-                                                _dragOffset >= _cancelThreshold
-                                            ? theme.colorScheme.destructive
-                                            : _isListening
-                                            ? theme.colorScheme.primary
-                                            : theme.colorScheme.primary),
+                          ),
+                        );
+                      }
+
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: Align(
+                          alignment:
+                              isUser ? Alignment.centerRight : Alignment.centerLeft,
+                          child: ConstrainedBox(
+                            constraints: BoxConstraints(
+                              maxWidth: MediaQuery.of(context).size.width * 0.8,
+                            ),
+                            child: ShadCard(
+                              backgroundColor: isUser
+                                  ? theme.colorScheme.primary
+                                  : null,
+                              padding: const EdgeInsets.all(12),
+                              child: Text(
+                                msg['content']!,
+                                style: theme.textTheme.p.copyWith(
+                                  color: isUser
+                                      ? theme.colorScheme.primaryForeground
+                                      : null,
                                 ),
                               ),
-                            ],
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+          ),
+
+          // Input Area
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Expanded(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxHeight: 150),
+                    child: ShadTextarea(
+                      controller: _controller,
+                      placeholder: const Text('Type your message...'),
+                      resizable: false,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Mic Button
+                    GestureDetector(
+                      onLongPressStart:
+                          !_isProcessing ? (_) => _startListening() : null,
+                      onLongPressEnd: !_isProcessing
+                          ? (_) {
+                              if (_dragOffset >= _cancelThreshold) {
+                                _cancelListening();
+                              } else {
+                                _stopListening();
+                              }
+                            }
+                          : null,
+                      onLongPressMoveUpdate: _isListening
+                          ? (details) {
+                              setState(() {
+                                _dragOffset = details.offsetFromOrigin.dy.clamp(
+                                  0.0,
+                                  double.infinity,
+                                );
+                              });
+
+                              if (_dragOffset >= _cancelThreshold &&
+                                  details.offsetFromOrigin.dy <
+                                      _cancelThreshold + 5) {
+                                HapticFeedback.heavyImpact();
+                              }
+                            }
+                          : null,
+                      child: Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          if (_isListening)
+                            AnimatedBuilder(
+                              animation: _rippleController,
+                              builder: (context, child) {
+                                final rippleOpacity =
+                                    (1.0 - _rippleController.value).clamp(
+                                      0.0,
+                                      1.0,
+                                    );
+                                final rippleScale =
+                                    1.0 +
+                                    (_rippleController.value * 0.5) +
+                                    (_soundLevel / 100.0 * 0.3);
+                                return Opacity(
+                                  opacity: rippleOpacity,
+                                  child: Transform.scale(
+                                    scale: rippleScale,
+                                    child: Container(
+                                      width: 48,
+                                      height: 48,
+                                      decoration: BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        border: Border.all(
+                                          color: theme.colorScheme.primary
+                                              .withOpacity(0.3),
+                                          width: 2,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                          Container(
+                            width: 48,
+                            height: 48,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: _dragOffset >= _cancelThreshold
+                                  ? theme.colorScheme.destructive
+                                      .withOpacity(0.1)
+                                  : theme.colorScheme.primary.withOpacity(
+                                      0.1,
+                                    ),
+                            ),
+                            child: Icon(
+                              _isListening && _dragOffset >= _cancelThreshold
+                                  ? Icons.close
+                                  : Icons.mic,
+                              size: 24,
+                              color:
+                                  _isListening && _dragOffset >= _cancelThreshold
+                                      ? theme.colorScheme.destructive
+                                      : theme.colorScheme.primary,
+                            ),
                           ),
                         ],
                       ),
-                      // child: ,
                     ),
-                  ),
-                ],
-              ),
+                    const SizedBox(height: 8),
+                    // Send Button
+                    ShadIconButton(
+                      onPressed: _isProcessing ? null : _sendMessage,
+                      icon: _isProcessing
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.send),
+                    ),
+                  ],
+                ),
+              ],
             ),
           ),
         ],
+        ),
       ),
     );
   }

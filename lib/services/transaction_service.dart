@@ -186,12 +186,15 @@ class TransactionService {
     }
   }
 
-  Future<String> processTranscriptGemini(String transcript) async {
+  Future<Map<String, dynamic>> processConversation(
+    String prompt,
+    List<dynamic> history,
+  ) async {
     try {
-      final body = json.encode({'prompt': transcript});
+      final body = json.encode({'prompt': prompt, 'history': history});
       final response = await _apiClient
           .post(
-            Uri.parse('${ApiConfig.baseUrl}/transactions/ai/process'),
+            Uri.parse('${ApiConfig.baseUrl}/transactions/ai/conversation'),
             body: body,
           )
           .timeout(
@@ -202,17 +205,16 @@ class TransactionService {
         final Map<String, dynamic> jsonResponse =
             json.decode(response.body) as Map<String, dynamic>;
 
-        // display the data
-        final apiResponse = ApiResponse<String>.fromJson(
+        final apiResponse = ApiResponse<Map<String, dynamic>>.fromJson(
           jsonResponse,
-          (data) => data as String,
+          (data) => data as Map<String, dynamic>,
         );
 
         if (apiResponse.success && apiResponse.data != null) {
           return apiResponse.data!;
         } else {
           throw Exception(
-            apiResponse.message ?? 'Failed to process transcript',
+            apiResponse.message ?? 'Failed to process conversation',
           );
         }
       } else {
@@ -223,14 +225,14 @@ class TransactionService {
           throw Exception(errorResponse.displayMessage);
         } catch (e) {
           throw Exception(
-            'Failed to process transcript: ${response.statusCode}',
+            'Failed to process conversation: ${response.statusCode}',
           );
         }
       }
     } on UnauthorizedException {
       rethrow;
     } catch (e) {
-      throw Exception('Error processing transcript: $e');
+      throw Exception('Error processing conversation: $e');
     }
   }
 }
