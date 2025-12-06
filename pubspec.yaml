@@ -46,6 +46,7 @@ dependencies:
   get_it: ^9.1.0
   pinput: ^6.0.0
   shadcn_ui: ^0.39.10
+  gpt_markdown: ^1.1.4
 
 dev_dependencies:
   flutter_test:

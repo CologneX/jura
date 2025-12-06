@@ -8,6 +8,7 @@ class TransactionState extends ChangeNotifier {
   List<Transaction> _transactions = [];
   double _totalExpenses = 0.0;
   double _totalIncome = 0.0;
+  String _currency = 'USD';
   bool _isLoading = false;
   bool _isLoadingMore = false;
   String? _error;
@@ -25,7 +26,7 @@ class TransactionState extends ChangeNotifier {
   String? get nextCursor => _nextCursor;
   bool get hasMoreData => _nextCursor != null;
   ListTransactionRequest? get currentFilter => _currentFilter;
-
+  String get getCurrency => _currency;
   double get totalExpenses => _totalExpenses;
   double get totalIncome => _totalIncome;
 
@@ -44,6 +45,7 @@ class TransactionState extends ChangeNotifier {
       _transactions = response.transactions;
       _nextCursor = response.nextCursor;
       _totalIncome = response.incomeSummary;
+      _currency = response.currency;
       _totalExpenses = response.expenseSummary;
       _error = null;
     } on UnauthorizedException catch (e) {

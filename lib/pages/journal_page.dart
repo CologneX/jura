@@ -29,7 +29,9 @@ class _JournalPageState extends State<JournalPage> {
     _scrollController.addListener(_onScroll);
     _loadTransactions();
 
-    _tabSubscription = GetIt.I<TabNavigationService>().onTabChanged.listen((index) {
+    _tabSubscription = GetIt.I<TabNavigationService>().onTabChanged.listen((
+      index,
+    ) {
       if (index == 0 && mounted) {
         _loadTransactions();
       }
@@ -49,10 +51,11 @@ class _JournalPageState extends State<JournalPage> {
   }
 
   void _onScroll() {
-    final currentIndex = (_scrollController.position.pixels /
-            (_scrollController.position.maxScrollExtent /
-                _transactionState.transactions.length))
-        .floor();
+    final currentIndex =
+        (_scrollController.position.pixels /
+                (_scrollController.position.maxScrollExtent /
+                    _transactionState.transactions.length))
+            .floor();
 
     // Check if we've reached a multiple of 10 and there's more data to fetch
     if (currentIndex > 0 &&
@@ -91,6 +94,7 @@ class _JournalPageState extends State<JournalPage> {
                   theme: theme,
                   totalIncome: 0.0,
                   totalExpenses: 0.0,
+                  currency: 'USD',
                   transactions: [],
                   isLoading: true,
                 ),
@@ -147,6 +151,7 @@ class _JournalPageState extends State<JournalPage> {
               totalIncome: _transactionState.totalIncome,
               totalExpenses: _transactionState.totalExpenses,
               transactions: _transactionState.transactions,
+              currency: _transactionState.getCurrency,
               isLoading: false,
               onRefresh: _loadTransactions,
             );
@@ -162,6 +167,7 @@ class _JournalPageState extends State<JournalPage> {
     required double totalExpenses,
     required List<Transaction> transactions,
     required bool isLoading,
+    required String currency,
     Future<void> Function()? onRefresh,
   }) {
     return RefreshIndicator(
@@ -187,6 +193,7 @@ class _JournalPageState extends State<JournalPage> {
                           title: 'Income',
                           amount: totalIncome,
                           isExpense: false,
+                          currency: currency,
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -197,6 +204,7 @@ class _JournalPageState extends State<JournalPage> {
                           title: 'Expenses',
                           amount: totalExpenses,
                           isExpense: true,
+                          currency: currency,
                         ),
                       ),
                     ],
@@ -233,7 +241,9 @@ class _JournalPageState extends State<JournalPage> {
                       Container(
                         padding: const EdgeInsets.all(24),
                         decoration: BoxDecoration(
-                          color: theme.colorScheme.mutedForeground.withAlpha(20),
+                          color: theme.colorScheme.mutedForeground.withAlpha(
+                            20,
+                          ),
                           shape: BoxShape.circle,
                         ),
                         child: Icon(
@@ -320,6 +330,7 @@ class _SummaryCard extends StatelessWidget {
   final String title;
   final double amount;
   final bool isExpense;
+  final String currency;
 
   const _SummaryCard({
     required this.theme,
@@ -327,6 +338,7 @@ class _SummaryCard extends StatelessWidget {
     required this.title,
     required this.amount,
     required this.isExpense,
+    required this.currency,
   });
 
   @override
@@ -367,7 +379,7 @@ class _SummaryCard extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           Text(
-            formatCurrency(amount, currencyCode: 'USD'),
+            formatCurrency(amount, currencyCode: currency),
             style: theme.textTheme.h4.copyWith(
               color: color,
               fontWeight: FontWeight.bold,
@@ -583,7 +595,10 @@ class _TransactionDetailsSheet extends StatelessWidget {
           spacing: 12,
           children: [
             Text(
-              formatCurrency(transaction.amount, currencyCode: transaction.currency),
+              formatCurrency(
+                transaction.amount,
+                currencyCode: transaction.currency,
+              ),
               style: theme.textTheme.h3.copyWith(color: color),
             ),
             const SizedBox(height: 8),
@@ -671,10 +686,7 @@ class _FilterSheet extends StatefulWidget {
   final ShadThemeData theme;
   final Function(ListTransactionRequest?) onApplyFilters;
 
-  const _FilterSheet({
-    required this.theme,
-    required this.onApplyFilters,
-  });
+  const _FilterSheet({required this.theme, required this.onApplyFilters});
 
   @override
   State<_FilterSheet> createState() => _FilterSheetState();
@@ -694,8 +706,12 @@ class _FilterSheetState extends State<_FilterSheet> {
       category: _selectedCategory,
       startDate: _startDate,
       endDate: _endDate,
-      minAmount: _minAmountText != null ? double.tryParse(_minAmountText!) : null,
-      maxAmount: _maxAmountText != null ? double.tryParse(_maxAmountText!) : null,
+      minAmount: _minAmountText != null
+          ? double.tryParse(_minAmountText!)
+          : null,
+      maxAmount: _maxAmountText != null
+          ? double.tryParse(_maxAmountText!)
+          : null,
     );
 
     widget.onApplyFilters(filter);
@@ -744,7 +760,9 @@ class _FilterSheetState extends State<_FilterSheet> {
               Text('Category', style: widget.theme.textTheme.small),
               ShadInput(
                 placeholder: const Text('Filter by category'),
-                onChanged: (value) => setState(() => _selectedCategory = value.isEmpty ? null : value),
+                onChanged: (value) => setState(
+                  () => _selectedCategory = value.isEmpty ? null : value,
+                ),
               ),
               const SizedBox(height: 4),
               // Date range
@@ -804,14 +822,18 @@ class _FilterSheetState extends State<_FilterSheet> {
                     child: ShadInput(
                       placeholder: const Text('Min'),
                       keyboardType: TextInputType.number,
-                      onChanged: (value) => setState(() => _minAmountText = value.isEmpty ? null : value),
+                      onChanged: (value) => setState(
+                        () => _minAmountText = value.isEmpty ? null : value,
+                      ),
                     ),
                   ),
                   Expanded(
                     child: ShadInput(
                       placeholder: const Text('Max'),
                       keyboardType: TextInputType.number,
-                      onChanged: (value) => setState(() => _maxAmountText = value.isEmpty ? null : value),
+                      onChanged: (value) => setState(
+                        () => _maxAmountText = value.isEmpty ? null : value,
+                      ),
                     ),
                   ),
                 ],

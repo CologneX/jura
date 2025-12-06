@@ -190,12 +190,14 @@ class TransactionResponse {
   final List<Transaction> transactions;
   final double incomeSummary;
   final double expenseSummary;
+  final String currency;
   final String? nextCursor;
 
   TransactionResponse({
     required this.transactions,
     required this.incomeSummary,
     required this.expenseSummary,
+    required this.currency,
     this.nextCursor,
   });
 
@@ -209,6 +211,7 @@ class TransactionResponse {
       transactions: transactionsList,
       incomeSummary: json['income_summary'].toDouble(),
       expenseSummary: json['expense_summary'].toDouble(),
+      currency: json['currency'],
       nextCursor: json['next_cursor'] as String?,
     );
   }

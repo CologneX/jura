@@ -2,6 +2,7 @@ import 'dart:developer';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:gpt_markdown/gpt_markdown.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 import 'package:jura/services/transaction_service.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
@@ -185,221 +186,220 @@ class _AIPageState extends State<AIPage> with TickerProviderStateMixin {
         behavior: HitTestBehavior.opaque,
         child: Column(
           children: [
-          // Header
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text('Jura AI', style: theme.textTheme.h4),
-                ShadIconButton.ghost(
-                  icon: const Icon(Icons.delete_outline),
-                  onPressed: _messages.isEmpty ? null : _clearHistory,
-                ),
-              ],
+            // Header
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text('Jura AI', style: theme.textTheme.h3),
+                  ShadIconButton.ghost(
+                    icon: const Icon(Icons.delete_outline),
+                    onPressed: _messages.isEmpty ? null : _clearHistory,
+                  ),
+                ],
+              ),
             ),
-          ),
-          // Chat Area
-          Expanded(
-            child: _messages.isEmpty
-                ? Center(
-                    child: Text(
-                      'Start a conversation with Jura AI',
-                      style: theme.textTheme.muted,
-                    ),
-                  )
-                : ListView.builder(
-                    controller: _scrollController,
-                    padding: const EdgeInsets.all(16),
-                    itemCount: _messages.length,
-                    itemBuilder: (context, index) {
-                      final msg = _messages[index];
-                      final isUser = msg['role'] == 'user';
-                      final isLoading = msg['role'] == 'loading';
+            // Chat Area
+            Expanded(
+              child: _messages.isEmpty
+                  ? Center(
+                      child: Text(
+                        'Start a conversation with Jura AI',
+                        style: theme.textTheme.muted,
+                      ),
+                    )
+                  : ListView.builder(
+                      controller: _scrollController,
+                      padding: const EdgeInsets.all(16),
+                      itemCount: _messages.length,
+                      itemBuilder: (context, index) {
+                        final msg = _messages[index];
+                        final isUser = msg['role'] == 'user';
+                        final isLoading = msg['role'] == 'loading';
 
-                      if (isLoading) {
+                        if (isLoading) {
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 12),
+                            child: Align(
+                              alignment: Alignment.centerLeft,
+                              child: ConstrainedBox(
+                                constraints: BoxConstraints(
+                                  maxWidth:
+                                      MediaQuery.of(context).size.width * 0.8,
+                                ),
+                                child: const ShadCard(
+                                  padding: EdgeInsets.all(12),
+                                  child: SizedBox(
+                                    width: 24,
+                                    height: 24,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          );
+                        }
+
                         return Padding(
                           padding: const EdgeInsets.only(bottom: 12),
                           child: Align(
-                            alignment: Alignment.centerLeft,
+                            alignment: isUser
+                                ? Alignment.centerRight
+                                : Alignment.centerLeft,
                             child: ConstrainedBox(
                               constraints: BoxConstraints(
                                 maxWidth:
                                     MediaQuery.of(context).size.width * 0.8,
                               ),
-                              child: const ShadCard(
-                                padding: EdgeInsets.all(12),
-                                child: SizedBox(
-                                  width: 24,
-                                  height: 24,
-                                  child:
-                                      CircularProgressIndicator(strokeWidth: 2),
-                                ),
+                              child: ShadCard(
+                                backgroundColor: isUser
+                                    ? theme.colorScheme.primary
+                                    : null,
+                                padding: const EdgeInsets.all(12),
+                                child: GptMarkdown(msg['content'] ?? ''),
                               ),
                             ),
                           ),
                         );
-                      }
+                      },
+                    ),
+            ),
 
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 12),
-                        child: Align(
-                          alignment:
-                              isUser ? Alignment.centerRight : Alignment.centerLeft,
-                          child: ConstrainedBox(
-                            constraints: BoxConstraints(
-                              maxWidth: MediaQuery.of(context).size.width * 0.8,
-                            ),
-                            child: ShadCard(
-                              backgroundColor: isUser
-                                  ? theme.colorScheme.primary
-                                  : null,
-                              padding: const EdgeInsets.all(12),
-                              child: Text(
-                                msg['content']!,
-                                style: theme.textTheme.p.copyWith(
-                                  color: isUser
-                                      ? theme.colorScheme.primaryForeground
-                                      : null,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-          ),
-
-          // Input Area
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Expanded(
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxHeight: 150),
-                    child: ShadTextarea(
-                      controller: _controller,
-                      placeholder: const Text('Type your message...'),
-                      resizable: false,
+            // Input Area
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Expanded(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxHeight: 150),
+                      child: ShadTextarea(
+                        controller: _controller,
+                        placeholder: const Text('Type your message...'),
+                        resizable: false,
+                      ),
                     ),
                   ),
-                ),
-                const SizedBox(width: 12),
-                Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // Mic Button
-                    GestureDetector(
-                      onLongPressStart:
-                          !_isProcessing ? (_) => _startListening() : null,
-                      onLongPressEnd: !_isProcessing
-                          ? (_) {
-                              if (_dragOffset >= _cancelThreshold) {
-                                _cancelListening();
-                              } else {
-                                _stopListening();
+                  const SizedBox(width: 12),
+                  Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Mic Button
+                      GestureDetector(
+                        onLongPressStart: !_isProcessing
+                            ? (_) => _startListening()
+                            : null,
+                        onLongPressEnd: !_isProcessing
+                            ? (_) {
+                                if (_dragOffset >= _cancelThreshold) {
+                                  _cancelListening();
+                                } else {
+                                  _stopListening();
+                                }
                               }
-                            }
-                          : null,
-                      onLongPressMoveUpdate: _isListening
-                          ? (details) {
-                              setState(() {
-                                _dragOffset = details.offsetFromOrigin.dy.clamp(
-                                  0.0,
-                                  double.infinity,
-                                );
-                              });
+                            : null,
+                        onLongPressMoveUpdate: _isListening
+                            ? (details) {
+                                setState(() {
+                                  _dragOffset = details.offsetFromOrigin.dy
+                                      .clamp(0.0, double.infinity);
+                                });
 
-                              if (_dragOffset >= _cancelThreshold &&
-                                  details.offsetFromOrigin.dy <
-                                      _cancelThreshold + 5) {
-                                HapticFeedback.heavyImpact();
+                                if (_dragOffset >= _cancelThreshold &&
+                                    details.offsetFromOrigin.dy <
+                                        _cancelThreshold + 5) {
+                                  HapticFeedback.heavyImpact();
+                                }
                               }
-                            }
-                          : null,
-                      child: Stack(
-                        alignment: Alignment.center,
-                        children: [
-                          if (_isListening)
-                            AnimatedBuilder(
-                              animation: _rippleController,
-                              builder: (context, child) {
-                                final rippleOpacity =
-                                    (1.0 - _rippleController.value).clamp(
-                                      0.0,
-                                      1.0,
-                                    );
-                                final rippleScale =
-                                    1.0 +
-                                    (_rippleController.value * 0.5) +
-                                    (_soundLevel / 100.0 * 0.3);
-                                return Opacity(
-                                  opacity: rippleOpacity,
-                                  child: Transform.scale(
-                                    scale: rippleScale,
-                                    child: Container(
-                                      width: 48,
-                                      height: 48,
-                                      decoration: BoxDecoration(
-                                        shape: BoxShape.circle,
-                                        border: Border.all(
-                                          color: theme.colorScheme.primary
-                                              .withOpacity(0.3),
-                                          width: 2,
+                            : null,
+                        child: Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            if (_isListening)
+                              AnimatedBuilder(
+                                animation: _rippleController,
+                                builder: (context, child) {
+                                  final rippleOpacity =
+                                      (1.0 - _rippleController.value).clamp(
+                                        0.0,
+                                        1.0,
+                                      );
+                                  final rippleScale =
+                                      1.0 +
+                                      (_rippleController.value * 0.5) +
+                                      (_soundLevel / 100.0 * 0.3);
+                                  return Opacity(
+                                    opacity: rippleOpacity,
+                                    child: Transform.scale(
+                                      scale: rippleScale,
+                                      child: Container(
+                                        width: 48,
+                                        height: 48,
+                                        decoration: BoxDecoration(
+                                          shape: BoxShape.circle,
+                                          border: Border.all(
+                                            color: theme.colorScheme.primary
+                                                .withOpacity(0.3),
+                                            width: 2,
+                                          ),
                                         ),
                                       ),
                                     ),
-                                  ),
-                                );
-                              },
+                                  );
+                                },
+                              ),
+                            Container(
+                              width: 48,
+                              height: 48,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: _dragOffset >= _cancelThreshold
+                                    ? theme.colorScheme.destructive.withOpacity(
+                                        0.1,
+                                      )
+                                    : theme.colorScheme.primary.withOpacity(
+                                        0.1,
+                                      ),
+                              ),
+                              child: Icon(
+                                _isListening && _dragOffset >= _cancelThreshold
+                                    ? Icons.close
+                                    : Icons.mic,
+                                size: 24,
+                                color:
+                                    _isListening &&
+                                        _dragOffset >= _cancelThreshold
+                                    ? theme.colorScheme.destructive
+                                    : theme.colorScheme.primary,
+                              ),
                             ),
-                          Container(
-                            width: 48,
-                            height: 48,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: _dragOffset >= _cancelThreshold
-                                  ? theme.colorScheme.destructive
-                                      .withOpacity(0.1)
-                                  : theme.colorScheme.primary.withOpacity(
-                                      0.1,
-                                    ),
-                            ),
-                            child: Icon(
-                              _isListening && _dragOffset >= _cancelThreshold
-                                  ? Icons.close
-                                  : Icons.mic,
-                              size: 24,
-                              color:
-                                  _isListening && _dragOffset >= _cancelThreshold
-                                      ? theme.colorScheme.destructive
-                                      : theme.colorScheme.primary,
-                            ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 8),
-                    // Send Button
-                    ShadIconButton(
-                      onPressed: _isProcessing ? null : _sendMessage,
-                      icon: _isProcessing
-                          ? const SizedBox(
-                              width: 16,
-                              height: 16,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : const Icon(Icons.send),
-                    ),
-                  ],
-                ),
-              ],
+                      const SizedBox(height: 8),
+                      // Send Button
+                      ShadIconButton(
+                        onPressed: _isProcessing ? null : _sendMessage,
+                        icon: _isProcessing
+                            ? const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : const Icon(Icons.send),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
         ),
       ),
     );
