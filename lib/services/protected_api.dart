@@ -1,39 +1,35 @@
 import 'dart:convert';
-import 'dart:ui';
+import 'package:get_it/get_it.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:jura/config/api_config.dart';
+import 'package:jura/config/storage_keys.dart';
 import 'package:jura/models/api_response.dart';
 import 'package:jura/models/auth.dart';
+import 'package:jura/services/auth_service.dart';
 
 /// A small protected API client which automatically:
 /// - attaches `Authorization: Bearer {access_token}` to requests
 /// - on 401 attempts to refresh tokens via `POST /api/v1/refresh-token` with
 ///   `Cookie: refresh_token={refresh}` header (refresh from secure storage)
 /// - if refresh succeeds, stores new tokens and retries the original request
-/// - if refresh fails (401), clears tokens and navigates to login page
+/// - if refresh fails (401), clears tokens and logout
 class ProtectedApiClient {
-  static const String _accessTokenKey = 'access_token';
-  static const String _refreshTokenKey = 'refresh_token';
+  final AuthService authService = GetIt.I<AuthService>();
 
   final http.Client _inner;
   final FlutterSecureStorage _secureStorage;
 
-  final VoidCallback onSessionExpired;
-
-  ProtectedApiClient({
-    required this.onSessionExpired,
-    http.Client? inner,
-    FlutterSecureStorage? storage,
-  }) : _inner = inner ?? http.Client(),
-       _secureStorage = storage ?? const FlutterSecureStorage();
+  ProtectedApiClient({http.Client? inner, FlutterSecureStorage? storage})
+    : _inner = inner ?? http.Client(),
+      _secureStorage = storage ?? const FlutterSecureStorage();
 
   Future<Map<String, String>> _defaultHeaders({
     Map<String, String>? extra,
   }) async {
     final headers = <String, String>{'Accept': 'application/json'};
     if (extra != null) headers.addAll(extra);
-    final token = await _secureStorage.read(key: _accessTokenKey);
+    final token = await _secureStorage.read(key: storageKeyAccessToken);
     if (token != null && token.isNotEmpty) {
       headers['Authorization'] = 'Bearer $token';
     }
@@ -93,14 +89,11 @@ class ProtectedApiClient {
     );
   }
 
-  // navigate to login page
-  void _navigateToLogin() {
-    onSessionExpired();
-  }
-
   Future<bool> _refreshTokens() async {
     try {
-      final refreshToken = await _secureStorage.read(key: _refreshTokenKey);
+      final refreshToken = await _secureStorage.read(
+        key: storageKeyRefreshToken,
+      );
       if (refreshToken == null || refreshToken.isEmpty) return false;
       final uri = Uri.parse('${ApiConfig.baseUrl}/users/refresh-token');
       final headers = <String, String>{
@@ -112,19 +105,12 @@ class ProtectedApiClient {
           .get(uri, headers: headers)
           .timeout(const Duration(seconds: 20));
       if (resp.statusCode == 200) {
-        final Map<String, dynamic> jsonResp =
-            json.decode(resp.body) as Map<String, dynamic>;
-        final apiResp = ApiResponse<LoginResponse>.fromJson(
-          jsonResp,
-          (data) => LoginResponse.fromJson(data as Map<String, dynamic>),
+        final apiResp = ApiResponse<RefreshTokenResponse>.fromJson(
+          json.decode(resp.body),
+          (data) => RefreshTokenResponse.fromJson(data as Map<String, dynamic>),
         );
         if (apiResp.success && apiResp.data != null) {
-          final access = apiResp.data!.accessToken;
-          final refresh = apiResp.data!.refreshToken;
-          await Future.wait([
-            _secureStorage.write(key: _accessTokenKey, value: access),
-            _secureStorage.write(key: _refreshTokenKey, value: refresh),
-          ]);
+          await apiResp.data!.storeTokens();
           return true;
         }
         return false;
@@ -134,15 +120,6 @@ class ProtectedApiClient {
     } catch (e) {
       return false;
     }
-  }
-
-  Future<void> _clearTokens() async {
-    try {
-      await Future.wait([
-        _secureStorage.delete(key: _accessTokenKey),
-        _secureStorage.delete(key: _refreshTokenKey),
-      ]);
-    } catch (_) {}
   }
 
   Future<http.Response> _performRequest(
@@ -160,9 +137,8 @@ class ProtectedApiClient {
     // Got 401 - attempt refresh
     final refreshed = await _refreshTokens();
     if (!refreshed) {
-      // refresh failed - navigate to login
-      await _clearTokens();
-      _navigateToLogin();
+      // refresh failed - logout
+      await authService.logout();
       return response; // original 401
     }
 
@@ -170,9 +146,8 @@ class ProtectedApiClient {
     try {
       response = await requestFn();
       if (response.statusCode == 401) {
-        // still unauthorized -> clear tokens and navigate
-        await _clearTokens();
-        _navigateToLogin();
+        // still unauthorized -> clear tokens and logout
+        await authService.logout();
       }
       return response;
     } catch (e) {

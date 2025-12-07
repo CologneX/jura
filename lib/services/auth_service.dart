@@ -4,16 +4,17 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:jura/config/api_config.dart';
+import 'package:jura/config/storage_keys.dart';
 import 'package:jura/models/auth.dart';
 import 'package:jura/models/api_response.dart';
 import 'package:jura/services/protected_api.dart';
+import 'package:jura/services/user_service.dart';
+import 'package:jura/main.dart';
 
 enum AuthStatus { initial, authenticated, unauthenticated }
 
 class AuthService extends ChangeNotifier {
   late final ProtectedApiClient apiClient;
-  static const String _accessTokenKey = 'access_token';
-  static const String _refreshTokenKey = 'refresh_token';
 
   final http.Client _httpClient;
   final FlutterSecureStorage _secureStorage;
@@ -27,8 +28,8 @@ class AuthService extends ChangeNotifier {
 
   Future<void> init() async {
     try {
-      final accessToken = await _secureStorage.read(key: _accessTokenKey);
-      final refreshToken = await _secureStorage.read(key: _refreshTokenKey);
+      final accessToken = await _secureStorage.read(key: storageKeyAccessToken);
+      final refreshToken = await _secureStorage.read(key: storageKeyRefreshToken);
 
       if (accessToken != null && refreshToken != null) {
         _status = AuthStatus.authenticated;
@@ -53,20 +54,6 @@ class AuthService extends ChangeNotifier {
     }
 
     return headers;
-  }
-
-  Future<void> _saveTokens({
-    required String accessToken,
-    required String refreshToken,
-  }) async {
-    try {
-      await Future.wait([
-        _secureStorage.write(key: _accessTokenKey, value: accessToken),
-        _secureStorage.write(key: _refreshTokenKey, value: refreshToken),
-      ]);
-    } catch (e) {
-      throw Exception('Failed to save tokens: $e');
-    }
   }
 
   Future<void> register({
@@ -125,21 +112,18 @@ class AuthService extends ChangeNotifier {
         throw Exception(errorResponse.displayMessage);
       }
 
-      final Map<String, dynamic> jsonResponse =
-          json.decode(response.body) as Map<String, dynamic>;
-
       final apiResponse = ApiResponse<LoginResponse>.fromJson(
-        jsonResponse,
+        json.decode(response.body),
         (data) => LoginResponse.fromJson(data as Map<String, dynamic>),
       );
 
       if (apiResponse.success && apiResponse.data != null) {
-        await _saveTokens(
-          accessToken: apiResponse.data!.accessToken,
-          refreshToken: apiResponse.data!.refreshToken,
-        );
+        await apiResponse.data?.storeTokens();
         _status = AuthStatus.authenticated;
         notifyListeners();
+        // Sync user data with UserService
+        final userService = getIt<UserService>();
+        await userService.setUser(apiResponse.data!.user);
       } else {
         throw Exception(apiResponse.message ?? 'Login failed');
       }
@@ -150,9 +134,17 @@ class AuthService extends ChangeNotifier {
 
   Future<void> logout() async {
     try {
-      await _secureStorage.deleteAll();
+      await _secureStorage.delete(key: storageKeyAccessToken);
+      await _secureStorage.delete(key: storageKeyRefreshToken);
+      await _secureStorage.delete(key: storageKeyUserId);
+      await _secureStorage.delete(key: storageKeyUsername);
+      await _secureStorage.delete(key: storageKeyPrimaryCurrency);
+      await _secureStorage.delete(key: storageKeyIsPremium);
       _status = AuthStatus.unauthenticated;
       notifyListeners();
+      // Sync user data with UserService
+      final userService = getIt<UserService>();
+      await userService.clearUser();
     } catch (e) {
       log('Error during logout: $e');
       _status = AuthStatus.unauthenticated;
