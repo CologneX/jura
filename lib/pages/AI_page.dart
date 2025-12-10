@@ -5,6 +5,11 @@ import 'package:flutter/services.dart';
 import 'package:gpt_markdown/gpt_markdown.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 import 'package:jura/services/transaction_service.dart';
+import 'package:jura/services/user_service.dart';
+import 'package:jura/models/transaction.dart';
+import 'package:jura/widgets/transaction_card.dart';
+import 'package:jura/utils/currencies.dart';
+import 'package:jura/main.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 
 class AIPage extends StatefulWidget {
@@ -29,7 +34,10 @@ class _AIPageState extends State<AIPage> with TickerProviderStateMixin {
   String _textBeforeListening = '';
 
   List<Map<String, dynamic>> _history = [];
-  final List<Map<String, String>> _messages = [];
+  final List<Map<String, dynamic>> _messages = [];
+  String _currencySearchValue = '';
+
+  UserService get _userService => getIt<UserService>();
 
   @override
   void initState() {
@@ -40,6 +48,41 @@ class _AIPageState extends State<AIPage> with TickerProviderStateMixin {
       duration: const Duration(milliseconds: 600),
     );
     _initializeSpeech();
+  }
+
+  Map<String, String> get _filteredCurrencies {
+    return {
+      for (final entry in currenciesMap.entries)
+        if (entry.key.toLowerCase().contains(
+              _currencySearchValue.toLowerCase(),
+            ) ||
+            entry.value.$2.toLowerCase().contains(
+              _currencySearchValue.toLowerCase(),
+            ))
+          entry.key: entry.key,
+    };
+  }
+
+  Future<void> _saveCurrency(String currency) async {
+    try {
+      if (!mounted) return;
+      await _userService.updateCurrency(currency);
+      if (!mounted) return;
+      ShadToaster.of(context).show(
+        ShadToast(
+          title: const Text('Success'),
+          description: Text('Currency changed to $currency'),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ShadToaster.of(context).show(
+        ShadToast.destructive(
+          title: const Text('Error'),
+          description: Text('Error: $e'),
+        ),
+      );
+    }
   }
 
   Future<void> _initializeSpeech() async {
@@ -140,8 +183,12 @@ class _AIPageState extends State<AIPage> with TickerProviderStateMixin {
 
       setState(() {
         _messages.removeLast();
-        _messages.add({'role': 'model', 'content': response['message']});
-        _history = List<Map<String, dynamic>>.from(response['history']);
+        _messages.add({
+          'role': 'model',
+          'content': response.message,
+          'transactionParams': response.transactionSearchParameters,
+        });
+        _history = response.history.map((msg) => msg.toJson()).toList();
         _isProcessing = false;
       });
 
@@ -168,6 +215,70 @@ class _AIPageState extends State<AIPage> with TickerProviderStateMixin {
     });
   }
 
+  void _openTransactionsSheet(ListTransactionRequest params) {
+    final fetchFuture = _transactionService.fetchTransactions(filter: params);
+
+    showShadSheet(
+      context: context,
+      side: ShadSheetSide.bottom,
+      builder: (context) {
+        final theme = ShadTheme.of(context);
+        return ShadSheet(
+          title: const Text('Transactions'),
+          child: FutureBuilder<TransactionResponse>(
+            future: fetchFuture,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Padding(
+                  padding: EdgeInsets.all(12),
+                  child: Center(
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                );
+              }
+
+              if (snapshot.hasError) {
+                return Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Text(
+                    'Failed to load transactions: ${snapshot.error}',
+                    style: theme.textTheme.muted,
+                  ),
+                );
+              }
+
+              final transactions = snapshot.data?.transactions ?? [];
+
+              if (transactions.isEmpty) {
+                return Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Text(
+                    'No transactions found for this request.',
+                    style: theme.textTheme.muted,
+                  ),
+                );
+              }
+
+              return SizedBox(
+                height: 420,
+                child: ListView.separated(
+                  padding: const EdgeInsets.all(6),
+                  itemCount: transactions.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 8),
+                  itemBuilder: (context, index) => TransactionCard(
+                    transaction: transactions[index],
+                    theme: theme,
+                    onTap: () {},
+                  ),
+                ),
+              );
+            },
+          ),
+        );
+      },
+    );
+  }
+
   @override
   void dispose() {
     _speechToText.cancel();
@@ -175,6 +286,67 @@ class _AIPageState extends State<AIPage> with TickerProviderStateMixin {
     _controller.dispose();
     _scrollController.dispose();
     super.dispose();
+  }
+
+  Widget _chatBubble(
+    Map<String, dynamic> msg,
+    bool isUser,
+    ShadThemeData theme,
+  ) {
+    final content = msg['content'] as String? ?? '';
+    final params = msg['transactionParams'] as ListTransactionRequest?;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Align(
+        alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxWidth: MediaQuery.of(context).size.width * 0.8,
+          ),
+          child: ShadCard(
+            backgroundColor: isUser ? theme.colorScheme.primary : null,
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                GptMarkdown(content),
+                if (!isUser && params != null) ...[
+                  const SizedBox(height: 12),
+                  ShadButton.outline(
+                    onPressed: () => _openTransactionsSheet(params),
+                    child: const Text('View transactions'),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _chatLoadingBubble(ShadThemeData theme) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxWidth: MediaQuery.of(context).size.width * 0.8,
+          ),
+          child: const ShadCard(
+            padding: EdgeInsets.all(12),
+            child: SizedBox(
+              width: 24,
+              height: 24,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   @override
@@ -193,9 +365,54 @@ class _AIPageState extends State<AIPage> with TickerProviderStateMixin {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text('Jura AI', style: theme.textTheme.h3),
-                  ShadIconButton.ghost(
-                    icon: const Icon(Icons.delete_outline),
+                  Spacer(),
+                  SizedBox(
+                    width: 60,
+                    child: ShadSelect<String>.withSearch(
+                      minWidth: 0,
+                      placeholder: const Text('Currency'),
+                      searchPlaceholder: const Text('Search...'),
+                      onSearchChanged: (value) =>
+                          setState(() => _currencySearchValue = value),
+                      options: [
+                        if (_filteredCurrencies.isEmpty)
+                          const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 24),
+                            child: Text('No currency found'),
+                          ),
+                        ..._filteredCurrencies.entries.map((entry) {
+                          final currencyCode = entry.key;
+                          final (flag, name) = currenciesMap[currencyCode]!;
+                          return Offstage(
+                            offstage: !_filteredCurrencies.containsKey(
+                              currencyCode,
+                            ),
+                            child: ShadOption(
+                              value: currencyCode,
+                              child: Text('$flag $currencyCode - $name'),
+                            ),
+                          );
+                        }),
+                      ],
+                      selectedOptionBuilder: (context, value) {
+                        final (flag, _) = currenciesMap[value]!;
+                        return Text(flag);
+                      },
+                      onChanged: (value) {
+                        if (value != null) {
+                          _saveCurrency(value);
+                        }
+                      },
+                      initialValue: _userService.currentUser?.primaryCurrency,
+                    ),
+                  ),
+                  SizedBox(width: 12),
+                  ShadButton.outline(
+                    height: 36,
+                    leading: const Icon(Icons.replay_outlined),
                     onPressed: _messages.isEmpty ? null : _clearHistory,
+                    enabled: _messages.isNotEmpty,
+                    child: const Text('Reset Chat'),
                   ),
                 ],
               ),
@@ -219,51 +436,10 @@ class _AIPageState extends State<AIPage> with TickerProviderStateMixin {
                         final isLoading = msg['role'] == 'loading';
 
                         if (isLoading) {
-                          return Padding(
-                            padding: const EdgeInsets.only(bottom: 12),
-                            child: Align(
-                              alignment: Alignment.centerLeft,
-                              child: ConstrainedBox(
-                                constraints: BoxConstraints(
-                                  maxWidth:
-                                      MediaQuery.of(context).size.width * 0.8,
-                                ),
-                                child: const ShadCard(
-                                  padding: EdgeInsets.all(12),
-                                  child: SizedBox(
-                                    width: 24,
-                                    height: 24,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          );
+                          return _chatLoadingBubble(theme);
+                        } else {
+                          return _chatBubble(msg, isUser, theme);
                         }
-
-                        return Padding(
-                          padding: const EdgeInsets.only(bottom: 12),
-                          child: Align(
-                            alignment: isUser
-                                ? Alignment.centerRight
-                                : Alignment.centerLeft,
-                            child: ConstrainedBox(
-                              constraints: BoxConstraints(
-                                maxWidth:
-                                    MediaQuery.of(context).size.width * 0.8,
-                              ),
-                              child: ShadCard(
-                                backgroundColor: isUser
-                                    ? theme.colorScheme.primary
-                                    : null,
-                                padding: const EdgeInsets.all(12),
-                                child: GptMarkdown(msg['content'] ?? ''),
-                              ),
-                            ),
-                          ),
-                        );
                       },
                     ),
             ),
@@ -383,6 +559,7 @@ class _AIPageState extends State<AIPage> with TickerProviderStateMixin {
                       const SizedBox(height: 8),
                       // Send Button
                       ShadIconButton(
+                        enabled: !_isProcessing,
                         onPressed: _isProcessing ? null : _sendMessage,
                         icon: _isProcessing
                             ? const SizedBox(

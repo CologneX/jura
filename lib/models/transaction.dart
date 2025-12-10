@@ -4,20 +4,26 @@ import 'package:jura/utils/formatters.dart';
 class ListTransactionRequest {
   final String? type;
   final String? category;
+  final String? notes;
   final DateTime? startDate;
   final DateTime? endDate;
   final double? minAmount;
   final double? maxAmount;
   final String? cursor;
+  final int? limit;
+  final int? offset;
 
   ListTransactionRequest({
     this.type,
     this.category,
+    this.notes,
     this.startDate,
     this.endDate,
     this.minAmount,
     this.maxAmount,
     this.cursor,
+    this.limit,
+    this.offset,
   });
 
   Map<String, dynamic> toQueryParams() {
@@ -25,12 +31,15 @@ class ListTransactionRequest {
 
     if (type != null) params['type'] = type;
     if (category != null) params['category'] = category;
+    if (notes != null) params['notes'] = notes;
     // Dates are converted to RFC3339/ISO8601 format for backend compatibility
     if (startDate != null) params['start_date'] = startDate!.toIso8601String();
     if (endDate != null) params['end_date'] = endDate!.toIso8601String();
     if (minAmount != null) params['min_amount'] = minAmount;
     if (maxAmount != null) params['max_amount'] = maxAmount;
     if (cursor != null) params['cursor'] = cursor;
+    if (limit != null) params['limit'] = limit;
+    if (offset != null) params['offset'] = offset;
 
     return params;
   }
@@ -47,11 +56,6 @@ class ListTransactionRequest {
         )
         .join('&');
     return entries.isNotEmpty ? '?$entries' : '';
-  }
-
-  @override
-  String toString() {
-    return 'ListTransactionRequest{type: $type, category: $category, startDate: $startDate, endDate: $endDate, minAmount: $minAmount, maxAmount: $maxAmount, cursor: $cursor}';
   }
 }
 

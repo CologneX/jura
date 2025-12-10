@@ -4,6 +4,7 @@ import 'package:jura/config/api_config.dart';
 import 'package:jura/services/protected_api.dart';
 import 'package:jura/models/transaction.dart';
 import 'package:jura/models/api_response.dart';
+import 'package:jura/models/ai.dart';
 
 class TransactionService {
   final ProtectedApiClient _apiClient = GetIt.instance<ProtectedApiClient>();
@@ -186,7 +187,7 @@ class TransactionService {
     }
   }
 
-  Future<Map<String, dynamic>> processConversation(
+  Future<AIResponse> processConversation(
     String prompt,
     List<dynamic> history,
   ) async {
@@ -205,9 +206,9 @@ class TransactionService {
         final Map<String, dynamic> jsonResponse =
             json.decode(response.body) as Map<String, dynamic>;
 
-        final apiResponse = ApiResponse<Map<String, dynamic>>.fromJson(
+        final apiResponse = ApiResponse<AIResponse>.fromJson(
           jsonResponse,
-          (data) => data as Map<String, dynamic>,
+          (data) => AIResponse.fromJson(data as Map<String, dynamic>),
         );
 
         if (apiResponse.success && apiResponse.data != null) {
