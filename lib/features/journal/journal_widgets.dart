@@ -5,7 +5,7 @@ import 'package:jura/core/widgets/toast.dart';
 import 'package:get_it/get_it.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart';
 
-/// Summary card widget showing income or expenses
+/// Summary card widget for income and expenses
 class SummaryCard extends StatelessWidget {
   final ThemeData theme;
   final IconData icon;
@@ -330,42 +330,47 @@ class FilterSheetState extends State<FilterSheet> {
             style: theme.typography.small.copyWith(fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 8),
-          Row(
+          ButtonGroup(
             children: [
-              Expanded(
-                child: _selectedType == null
-                    ? PrimaryButton(onPressed: () {}, child: const Text('All'))
-                    : OutlineButton(
-                        onPressed: () => setState(() => _selectedType = null),
-                        child: const Text('All'),
-                      ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _selectedType == 'income'
-                    ? PrimaryButton(
-                        onPressed: () {},
-                        child: const Text('Income'),
-                      )
-                    : OutlineButton(
-                        onPressed: () =>
-                            setState(() => _selectedType = 'income'),
-                        child: const Text('Income'),
-                      ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _selectedType == 'expense'
-                    ? PrimaryButton(
-                        onPressed: () {},
-                        child: const Text('Expense'),
-                      )
-                    : OutlineButton(
-                        onPressed: () =>
-                            setState(() => _selectedType = 'expense'),
-                        child: const Text('Expense'),
-                      ),
-              ),
+              Button(
+                onPressed: () {
+                  setState(() {
+                    _selectedType = null;
+                  });
+                },
+                style: _selectedType == null
+                    ? ButtonStyle.primary()
+                    : ButtonStyle.outline(),
+                child: Text("All"),
+              ).expanded(),
+              Button(
+                onPressed: () {
+                  setState(() {
+                    _selectedType = 'income';
+                  });
+                },
+                style: ButtonStyle.outline()
+                    .withBackgroundColor(
+                      color: _selectedType == 'income' ? Colors.green : null,
+                    )
+                    .withForegroundColor(
+                      color: _selectedType == 'income'
+                          ? theme.colorScheme.accent
+                          : null,
+                    ),
+                child: Text("Income"),
+              ).expanded(),
+              Button(
+                onPressed: () {
+                  setState(() {
+                    _selectedType = 'expense';
+                  });
+                },
+                style: _selectedType == 'expense'
+                    ? ButtonStyle.destructive()
+                    : ButtonStyle.outline(),
+                child: Text("Expense"),
+              ).expanded(),
             ],
           ),
           const SizedBox(height: 16),
