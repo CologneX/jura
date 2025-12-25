@@ -1,5 +1,5 @@
 name: jura
-description: "Ai Finance Journal"
+description: "AI Finance Journal"
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
 publish_to: "none" # Remove this line if you wish to publish to pub.dev
@@ -30,23 +30,20 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-
-  # The following adds the Cupertino Icons font to your application.
-  # Use with the CupertinoIcons class for iOS style icons.
-  cupertino_icons: ^1.0.8
-  flutter_secure_storage: ^9.2.4
+  flutter_secure_storage: ^10.0.0
   http: ^1.1.0
   intl: ^0.20.2
   speech_to_text: ^7.3.0
   flutter_dotenv: ^6.0.0
-  motion_toast: ^2.14.0
   google_fonts: ^6.3.2
   skeletonizer: ^2.1.0+1
   go_router: ^17.0.0
   get_it: ^9.1.0
   pinput: ^6.0.0
-  shadcn_ui: ^0.39.10
   gpt_markdown: ^1.1.4
+  shadcn_flutter: ^0.0.47
+  equatable: ^2.0.7
+  provider: ^6.1.5+1
 
 dev_dependencies:
   flutter_test:

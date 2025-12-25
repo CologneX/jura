@@ -1,7 +1,5 @@
-import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:jura/config/router.dart';
-import 'package:shadcn_ui/shadcn_ui.dart';
+import 'package:jura/core/router/router.dart';
+import 'package:shadcn_flutter/shadcn_flutter.dart';
 
 class App extends StatefulWidget {
   const App({super.key});
@@ -18,40 +16,13 @@ class _AppState extends State<App> {
 
   @override
   Widget build(BuildContext context) {
-    return ShadApp.custom(
+    return ShadcnApp.router(
+      scrollBehavior: const ShadcnScrollBehavior(),
+      debugShowCheckedModeBanner: false,
       themeMode: ThemeMode.system,
-      darkTheme: ShadThemeData(
-        colorScheme: const ShadVioletColorScheme.dark(),
-        textTheme: ShadTextTheme(
-          h1Large: GoogleFonts.rubik(),
-          h1: GoogleFonts.rubik(),
-          h2: GoogleFonts.rubik(),
-          h3: GoogleFonts.rubik(),
-          h4: GoogleFonts.rubik(),
-          family: GoogleFonts.poppins().fontFamily,
-        ),
-      ),
-      theme: ShadThemeData(
-        colorScheme: const ShadVioletColorScheme.light(),
-        textTheme: ShadTextTheme(
-          h1Large: GoogleFonts.rubik(),
-          h1: GoogleFonts.rubik(),
-          h2: GoogleFonts.rubik(),
-          h3: GoogleFonts.rubik(),
-          h4: GoogleFonts.rubik(),
-          family: GoogleFonts.poppins().fontFamily,
-        ),
-      ),
-      appBuilder: (context) {
-        return MaterialApp.router(
-          theme: Theme.of(context),
-          debugShowCheckedModeBanner: false,
-          routerConfig: router,
-          builder: (context, child) {
-            return ShadAppBuilder(child: child);
-          },
-        );
-      },
+      darkTheme: ThemeData(colorScheme: ColorSchemes.darkViolet),
+      theme: ThemeData(colorScheme: ColorSchemes.lightViolet),
+      routerConfig: router,
     );
   }
 }
