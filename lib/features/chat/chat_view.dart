@@ -119,15 +119,8 @@ class _ChatViewState extends State<ChatView> with TickerProviderStateMixin {
     final theme = Theme.of(context);
     final state = _viewModel.state;
 
-    final history = state is ChatReady
-        ? state.history
-        : state is ChatListening
-        ? state.history
-        : state is ChatProcessing
-        ? state.history
-        : state is ChatError
-        ? state.history
-        : <ChatMessage>[];
+    final history = _viewModel.messages;
+    final currency = _viewModel.currency;
 
     final isProcessing = state is ChatProcessing;
     final isListening = state is ChatListening;
@@ -139,7 +132,7 @@ class _ChatViewState extends State<ChatView> with TickerProviderStateMixin {
           title: const Text('Chat').h3,
           trailing: [
             CurrencyDropdown(
-              currentCurrency: state is ChatReady ? state.currency : null,
+              currentCurrency: currency,
               onChanged: (currency) {
                 _viewModel.updateCurrency(currency);
               },

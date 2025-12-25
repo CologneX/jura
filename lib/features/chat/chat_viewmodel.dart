@@ -13,40 +13,27 @@ abstract class ChatState {
 class ChatInitial extends ChatState {}
 
 class ChatReady extends ChatState {
-  final List<ChatMessage> history;
-  final bool isSpeechAvailable;
-  final String? currency;
-
-  const ChatReady({
-    required this.history,
-    required this.isSpeechAvailable,
-    this.currency,
-  });
+  const ChatReady();
 }
 
 class ChatListening extends ChatState {
-  final List<ChatMessage> history;
   final double soundLevel;
   final String recognizedText;
 
   const ChatListening({
-    required this.history,
     required this.soundLevel,
     this.recognizedText = '',
   });
 }
 
 class ChatProcessing extends ChatState {
-  final List<ChatMessage> history;
-
-  const ChatProcessing({required this.history});
+  const ChatProcessing();
 }
 
 class ChatError extends ChatState {
   final String message;
-  final List<ChatMessage> history;
 
-  const ChatError({required this.message, required this.history});
+  const ChatError({required this.message});
 }
 
 /// Chat Message Model
@@ -74,7 +61,10 @@ class ChatViewModel extends ChangeNotifier {
   final ChatService _service;
   final stt.SpeechToText _speechToText;
   final UserService _userService;
-  List<Map<String, dynamic>> _history = [];
+  
+  List<Map<String, dynamic>> _serviceHistory = [];
+  List<ChatMessage> _messages = [];
+  bool _isSpeechAvailable = false;
 
   ChatViewModel(this._service, this._speechToText, this._userService) {
     _userService.addListener(_onUserServiceChanged);
@@ -83,17 +73,12 @@ class ChatViewModel extends ChangeNotifier {
   ChatState _state = ChatInitial();
   ChatState get state => _state;
 
+  List<ChatMessage> get messages => _messages;
+  bool get isSpeechAvailable => _isSpeechAvailable;
+  String? get currency => _userService.currentUser?.primaryCurrency;
+
   void _onUserServiceChanged() {
-    if (_state is ChatReady) {
-      final currentState = _state as ChatReady;
-      _updateState(
-        ChatReady(
-          history: currentState.history,
-          isSpeechAvailable: currentState.isSpeechAvailable,
-          currency: _userService.currentUser?.primaryCurrency,
-        ),
-      );
-    }
+    notifyListeners();
   }
 
   void _updateState(ChatState newState) {
@@ -103,38 +88,24 @@ class ChatViewModel extends ChangeNotifier {
 
   Future<void> initialize() async {
     try {
-      final isAvailable = await _speechToText.initialize(
+      _isSpeechAvailable = await _speechToText.initialize(
         onError: (error) => log('Speech error: $error'),
         onStatus: (status) => log('Speech status: $status'),
       );
 
-      final userCurrency = _userService.currentUser?.primaryCurrency;
-
-      _updateState(
-        ChatReady(
-          history: const [],
-          isSpeechAvailable: isAvailable,
-          currency: userCurrency,
-        ),
-      );
+      _updateState(const ChatReady());
     } catch (e) {
       log('Failed to initialize speech: $e');
-      _updateState(
-        ChatReady(
-          history: const [],
-          isSpeechAvailable: false,
-          currency: _userService.currentUser?.primaryCurrency,
-        ),
-      );
+      _isSpeechAvailable = false;
+      _updateState(const ChatReady());
     }
   }
 
   void startListening() {
     if (_state is! ChatReady) return;
-    final currentState = _state as ChatReady;
+    
     _updateState(
-      ChatListening(
-        history: currentState.history,
+      const ChatListening(
         soundLevel: 0.0,
         recognizedText: '',
       ),
@@ -146,14 +117,12 @@ class ChatViewModel extends ChangeNotifier {
           final currentState = _state as ChatListening;
           _updateState(
             ChatListening(
-              history: currentState.history,
               soundLevel: currentState.soundLevel,
               recognizedText: result.recognizedWords,
             ),
           );
         }
       },
-      // listenMode: stt.ListenMode.dictation,
       listenOptions: stt.SpeechListenOptions(
         listenMode: stt.ListenMode.dictation,
       ),
@@ -162,60 +131,40 @@ class ChatViewModel extends ChangeNotifier {
 
   void stopListening() {
     if (_state is! ChatListening) return;
-    final currentState = _state as ChatListening;
     _speechToText.stop();
-    _updateState(
-      ChatReady(
-        history: currentState.history,
-        isSpeechAvailable: true,
-        currency: _userService.currentUser?.primaryCurrency,
-      ),
-    );
+    _updateState(const ChatReady());
   }
 
   void cancelListening() {
     if (_state is! ChatListening) return;
-    final currentState = _state as ChatListening;
     _speechToText.cancel();
-    _updateState(
-      ChatReady(
-        history: currentState.history,
-        isSpeechAvailable: true,
-        currency: _userService.currentUser?.primaryCurrency,
-      ),
-    );
+    _updateState(const ChatReady());
   }
 
   void updateSoundLevel(double level) {
     if (_state is ChatListening) {
-      final currentState = _state as ChatListening;
       _updateState(
-        ChatListening(history: currentState.history, soundLevel: level),
+        ChatListening(
+          soundLevel: level,
+          recognizedText: (_state as ChatListening).recognizedText,
+        ),
       );
     }
   }
 
   Future<void> sendMessage(String message) async {
-    List<ChatMessage> currentHistory = [];
-
-    if (_state is ChatReady) {
-      currentHistory = (_state as ChatReady).history;
-    } else if (_state is ChatError) {
-      currentHistory = (_state as ChatError).history;
-    }
-
-    final updatedHistory = [
-      ...currentHistory,
+    _messages = [
+      ..._messages,
       ChatMessage(role: 'user', content: message),
     ];
 
-    _updateState(ChatProcessing(history: updatedHistory));
+    _updateState(const ChatProcessing());
 
     try {
-      final response = await _service.processConversation(message, _history);
+      final response = await _service.processConversation(message, _serviceHistory);
 
-      final finalHistory = [
-        ...updatedHistory,
+      _messages = [
+        ..._messages,
         ChatMessage(
           role: 'model',
           content: response.message,
@@ -223,66 +172,43 @@ class ChatViewModel extends ChangeNotifier {
         ),
       ];
 
-      _history = response.history.map((msg) => msg.toJson()).toList();
+      _serviceHistory = response.history.map((msg) => msg.toJson()).toList();
 
-      _updateState(
-        ChatReady(
-          history: finalHistory,
-          isSpeechAvailable: true,
-          currency: _userService.currentUser?.primaryCurrency,
-        ),
-      );
+      _updateState(const ChatReady());
     } catch (e) {
-      _updateState(ChatError(message: e.toString(), history: updatedHistory));
-
-      final errorHistory = [
-        ...updatedHistory,
+      _messages = [
+        ..._messages,
         ChatMessage(role: 'model', content: 'Error: ${e.toString()}'),
       ];
 
-      _updateState(
-        ChatReady(
-          history: errorHistory,
-          isSpeechAvailable: true,
-          currency: _userService.currentUser?.primaryCurrency,
-        ),
-      );
+      _updateState(ChatError(message: e.toString()));
+      
+      // After showing error, we can go back to ready so user can try again
+      // or just stay in error state if the UI handles it.
+      // The previous code was immediately going back to ChatReady.
+      _updateState(const ChatReady());
     }
   }
 
   void clearHistory() {
-    _history.clear();
-    _updateState(
-      ChatReady(
-        history: const [],
-        isSpeechAvailable: true,
-        currency: _userService.currentUser?.primaryCurrency,
-      ),
-    );
+    _serviceHistory.clear();
+    _messages.clear();
+    _updateState(const ChatReady());
   }
 
   Future<void> updateCurrency(String currency) async {
     try {
       log('Updating currency to $currency');
       await _userService.updateCurrency(currency);
-      if (_state is ChatReady) {
-        final currentState = _state as ChatReady;
-        _updateState(
-          ChatReady(
-            history: currentState.history,
-            isSpeechAvailable: currentState.isSpeechAvailable,
-            currency: _userService.currentUser?.primaryCurrency,
-          ),
-        );
-      }
+      notifyListeners();
     } catch (e) {
       log('Failed to update currency: $e');
-      _updateState(ChatError(message: e.toString(), history: const []));
+      _updateState(ChatError(message: e.toString()));
     }
   }
 
   stt.SpeechToText get speechToText => _speechToText;
-  List<Map<String, dynamic>> get history => _history;
+  List<Map<String, dynamic>> get history => _serviceHistory;
 
   @override
   void dispose() {
