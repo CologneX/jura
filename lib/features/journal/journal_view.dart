@@ -181,21 +181,21 @@ class _JournalViewState extends State<JournalView> {
   }
 
   Widget _buildLoadingState(ThemeData theme) {
-    return Skeletonizer(
-      child: RefreshTrigger(
-        key: _refreshTriggerKey,
-        child: CustomScrollView(
-          controller: _scrollController,
-          scrollBehavior: const ShadcnScrollBehavior(),
-          slivers: [
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const SizedBox(height: 16),
-                    Row(
+    return RefreshTrigger(
+      key: _refreshTriggerKey,
+      child: CustomScrollView(
+        controller: _scrollController,
+        scrollBehavior: const ShadcnScrollBehavior(),
+        slivers: [
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const SizedBox(height: 16),
+                  Skeletonizer(
+                    child: Row(
                       children: [
                         Expanded(
                           child: SummaryCard(
@@ -220,19 +220,21 @@ class _JournalViewState extends State<JournalView> {
                         ),
                       ],
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-                child: Text('Transactions', style: theme.typography.h4),
-              ),
+          ),
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+              child: Text('Transactions', style: theme.typography.h4),
             ),
-            SliverPadding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              sliver: SliverList(
+          ),
+          SliverPadding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            sliver: SliverSkeletonizer(
+              child: SliverList(
                 delegate: SliverChildBuilderDelegate(
                   (context, index) => Padding(
                     padding: const EdgeInsets.only(bottom: 12),
@@ -256,8 +258,8 @@ class _JournalViewState extends State<JournalView> {
                 ),
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
