@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:developer';
 import 'package:jura/core/utils/api_config.dart';
 import 'package:jura/core/models/transaction.dart';
 import 'package:jura/core/models/api_response.dart';
@@ -17,6 +18,7 @@ class TransactionService {
   }) async {
     try {
       final request = filter ?? ListTransactionRequest();
+      log('Fetching transactions with filter: ${request.queryString}');
       final url = '${ApiConfig.baseUrl}/transactions${request.queryString}';
 
       final response = await _apiClient

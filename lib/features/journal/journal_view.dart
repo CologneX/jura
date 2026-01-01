@@ -249,6 +249,7 @@ class _JournalViewState extends State<JournalView> {
                         paymentMethod: 'cash',
                         createdAt: DateTime.now(),
                         updatedAt: DateTime.now(),
+                        category: TransactionCategory.other.name,
                       ),
                       theme: theme,
                       onTap: () {},

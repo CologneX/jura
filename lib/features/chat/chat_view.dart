@@ -107,6 +107,7 @@ class _ChatViewState extends State<ChatView> with TickerProviderStateMixin {
     ListTransactionRequest params,
   ) {
     openDrawer(
+      transformBackdrop: false,
       context: context,
       builder: (context) =>
           TransactionDrawer(params: params, aiService: GetIt.I<ChatService>()),

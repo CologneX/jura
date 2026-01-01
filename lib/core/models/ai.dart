@@ -83,7 +83,7 @@ class AIResponse {
 
       params = ListTransactionRequest(
         type: paramsJson['type'],
-        category: paramsJson['category'],
+        category: TransactionCategory.fromString(paramsJson['category']),
         notes: paramsJson['notes'] as String?,
         startDate: toDate(paramsJson['start_date']),
         endDate: toDate(paramsJson['end_date']),

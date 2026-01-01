@@ -1,9 +1,17 @@
+import 'dart:developer';
+
 import 'package:jura/core/models/transaction.dart';
 import 'package:jura/core/utils/formatters.dart';
 import 'package:jura/core/services/user_service.dart';
+import 'package:jura/core/utils/string_extension.dart';
 import 'package:jura/core/widgets/toast.dart';
 import 'package:get_it/get_it.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart';
+
+String _labelCategory(TransactionCategory? category) {
+  if (category == null) return 'All Categories';
+  return category.name.toCamelCase();
+}
 
 /// Summary card widget for income and expenses
 class SummaryCard extends StatelessWidget {
@@ -125,16 +133,17 @@ class TransactionDetailsSheet extends StatelessWidget {
                         ],
                       ),
                     ),
-                    if (transaction.category != null) ...[
-                      const SizedBox(width: 8),
-                      SecondaryBadge(
-                        style: ButtonStyle.outline(
-                          density: ButtonDensity.dense,
-                          size: ButtonSize.small,
-                        ),
-                        child: Text(transaction.category!).semiBold,
+
+                    const SizedBox(width: 8),
+                    SecondaryBadge(
+                      style: ButtonStyle.outline(
+                        density: ButtonDensity.dense,
+                        size: ButtonSize.small,
                       ),
-                    ],
+                      child: Text(
+                        transaction.category.toSentenceCase(),
+                      ).semiBold,
+                    ),
                   ],
                 ),
                 const SizedBox(height: 16),
@@ -251,7 +260,7 @@ class FilterSheetState extends State<FilterSheet> {
     super.initState();
     final filter = widget.initialFilter;
     _selectedType = filter?.type;
-    _selectedCategory = filter?.category;
+    _selectedCategory = filter?.category ?? TransactionCategory.food;
     _notesController = TextEditingController(text: filter?.notes);
     _startDate = filter?.startDate;
     _endDate = filter?.endDate;
@@ -374,7 +383,6 @@ class FilterSheetState extends State<FilterSheet> {
             ],
           ),
           const SizedBox(height: 16),
-
           // Category selector
           Text(
             'Category',
@@ -383,34 +391,24 @@ class FilterSheetState extends State<FilterSheet> {
           const SizedBox(height: 8),
           Select<TransactionCategory?>(
             value: _selectedCategory,
-            onChanged: (value) {
-              setState(() {
-                _selectedCategory = value;
-              });
-            },
+            onChanged: (value) => {setState(() => _selectedCategory = value)},
             itemBuilder: (context, item) {
-              if (item == null) return const Text('All Categories');
-              return Text(item.name.toUpperCase());
+              return Text(_labelCategory(item).toSentenceCase());
             },
+            canUnselect: true,
             placeholder: const Text('Select category'),
-            popup: SelectPopup.builder(
-              builder: (context, searchQuery) {
-                return SelectItemList(
-                  children: [
-                    SelectItemButton<TransactionCategory?>(
-                      value: null,
-                      child: const Text('All Categories'),
-                    ),
-                    ...TransactionCategory.values.map(
-                      (cat) => SelectItemButton<TransactionCategory?>(
-                        value: cat,
-                        child: Text(cat.name.toUpperCase()),
+            popup: SelectPopup(
+              items: SelectItemList(
+                children: [null, ...TransactionCategory.values]
+                    .map(
+                      (c) => SelectItemButton(
+                        value: c,
+                        child: Text(_labelCategory(c).toSentenceCase()),
                       ),
-                    ),
-                  ],
-                );
-              },
-            ),
+                    )
+                    .toList(),
+              ),
+            ).call,
           ),
           const SizedBox(height: 16),
 
@@ -440,26 +438,6 @@ class FilterSheetState extends State<FilterSheet> {
                       ),
                     ),
                     const SizedBox(height: 8),
-                    // OutlineButton(
-                    //   onPressed: () async {
-                    //     final date = await DatePicker(
-                    //       context: context,
-                    //       initialDate: _startDate ?? DateTime.now(),
-                    //       firstDate: DateTime(2000),
-                    //       lastDate: DateTime.now(),
-                    //     );
-                    //     if (date != null) {
-                    //       setState(() {
-                    //         _startDate = date;
-                    //       });
-                    //     }
-                    //   },
-                    //   child: Text(
-                    //     _startDate != null
-                    //         ? _formatSimpleDate(_startDate!)
-                    //         : 'Select date',
-                    //   ),
-                    // ),
                     DatePicker(
                       value: _startDate,
                       onChanged: (value) {
@@ -586,7 +564,7 @@ class AddTransactionSheet extends StatefulWidget {
 
 class AddTransactionSheetState extends State<AddTransactionSheet> {
   String? _selectedType;
-  TransactionCategory? _selectedCategory;
+  TransactionCategory? _selectedCategory = TransactionCategory.food;
   late final TextEditingController _amountController;
   late DateTime _date;
   late final TextEditingController _notesController;
@@ -767,18 +745,19 @@ class AddTransactionSheetState extends State<AddTransactionSheet> {
             const SizedBox(height: 8),
             Select<TransactionCategory>(
               value: _selectedCategory,
-              placeholder: const Text('Optional'),
-              onChanged: _isSubmitting
-                  ? null
-                  : (value) => setState(() => _selectedCategory = value),
-              itemBuilder: (context, item) => Text(_labelCategory(item)),
+              onChanged: (value) => {
+                log('Selected category: $value'),
+                setState(() => _selectedCategory = value),
+              },
+              itemBuilder: (context, item) =>
+                  Text(_labelCategory(item).toSentenceCase()),
               popup: SelectPopup(
                 items: SelectItemList(
                   children: TransactionCategory.values
                       .map(
                         (c) => SelectItemButton(
                           value: c,
-                          child: Text(_labelCategory(c)),
+                          child: Text(_labelCategory(c).toSentenceCase()),
                         ),
                       )
                       .toList(),
@@ -827,9 +806,5 @@ class AddTransactionSheetState extends State<AddTransactionSheet> {
         ),
       ),
     );
-  }
-
-  String _labelCategory(TransactionCategory category) {
-    return category.name[0].toUpperCase() + category.name.substring(1);
   }
 }

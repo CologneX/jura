@@ -1,5 +1,6 @@
 import 'package:jura/core/models/transaction.dart';
 import 'package:jura/core/utils/formatters.dart';
+import 'package:jura/core/utils/string_extension.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart';
 
 /// Reusable transaction list tile used across the app.
@@ -47,7 +48,7 @@ class TransactionCard extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    transaction.category ?? 'Uncategorized',
+                    transaction.category.toSentenceCase(),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ).semiBold().foreground(),

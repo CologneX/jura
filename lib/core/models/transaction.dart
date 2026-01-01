@@ -8,7 +8,17 @@ enum TransactionCategory {
   entertainment,
   shopping,
   bills,
-  other,
+  other;
+
+  /// Parse a string to TransactionCategory enum
+  static TransactionCategory? fromString(String? value) {
+    if (value == null) return null;
+    final lowerValue = value.toLowerCase();
+    return TransactionCategory.values.firstWhere(
+      (e) => e.name.toLowerCase() == lowerValue,
+      orElse: () => TransactionCategory.other,
+    );
+  }
 }
 
 /// Filter request for listing transactions
@@ -67,7 +77,7 @@ class ListTransactionRequest {
     final params = <String, dynamic>{};
 
     if (type != null) params['type'] = type;
-    if (category != null) params['category'] = category;
+    if (category != null) params['category'] = category!.name;
     if (notes != null) params['notes'] = notes;
     if (startDate != null) {
       params['start_date'] = startDate!.toUtc().toIso8601String();
@@ -88,7 +98,6 @@ class ListTransactionRequest {
     final params = toQueryParams();
     if (params.isEmpty) return '';
 
-    // URL-encode each parameter to safely transmit dates and other values
     final entries = params.entries
         .map(
           (e) =>
@@ -142,7 +151,7 @@ class Transaction {
   final double amount;
   final String currency;
   final DateTime date;
-  final String? category;
+  final String category;
   final String notes;
   final String paymentMethod;
   final DateTime createdAt;
@@ -154,7 +163,7 @@ class Transaction {
     required this.amount,
     required this.currency,
     required this.date,
-    this.category,
+    required this.category,
     required this.notes,
     required this.paymentMethod,
     required this.createdAt,
@@ -163,16 +172,16 @@ class Transaction {
 
   factory Transaction.fromJson(Map<String, dynamic> json) {
     return Transaction(
-      id: json['id'] as String,
-      type: json['type'] as String,
-      amount: (json['amount'] as num).toDouble(),
-      currency: json['currency'] as String,
-      date: DateTime.parse(json['date'] as String),
-      category: json['category'] as String?,
-      notes: json['notes'] as String? ?? '',
-      paymentMethod: json['payment_method'] as String? ?? 'cash',
-      createdAt: DateTime.parse(json['created_at'] as String),
-      updatedAt: DateTime.parse(json['updated_at'] as String),
+      id: json['id'],
+      type: json['type'],
+      amount: (json['amount']).toDouble(),
+      currency: json['currency'],
+      date: DateTime.parse(json['date']),
+      category: json['category'],
+      notes: json['notes'] ?? '',
+      paymentMethod: json['payment_method'],
+      createdAt: DateTime.parse(json['created_at']),
+      updatedAt: DateTime.parse(json['updated_at']),
     );
   }
 

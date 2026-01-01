@@ -1,3 +1,5 @@
+import 'dart:developer';
+
 import 'package:flutter/services.dart';
 import 'package:gpt_markdown/gpt_markdown.dart';
 import 'package:jura/core/models/transaction.dart';
@@ -177,7 +179,7 @@ class _MicrophoneButtonState extends State<MicrophoneButton> {
   }
 }
 
-class TransactionDrawer extends StatelessWidget {
+class TransactionDrawer extends StatefulWidget {
   final ListTransactionRequest params;
   final ChatService aiService;
 
@@ -188,9 +190,41 @@ class TransactionDrawer extends StatelessWidget {
   });
 
   @override
+  State<TransactionDrawer> createState() => _TransactionDrawerState();
+}
+
+class _TransactionDrawerState extends State<TransactionDrawer> {
+  late TransactionResponse _transactionResponse;
+  bool _isLoading = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchTransactions();
+  }
+
+  Future<void> _fetchTransactions() async {
+    try {
+      final response = await widget.aiService.fetchTransactions(
+        filter: widget.params,
+      );
+      log('Fetched ${response.transactions.length} transactions');
+      setState(() {
+        _transactionResponse = response;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _error = e.toString();
+        _isLoading = false;
+      });
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final fetchFuture = aiService.fetchTransactions(filter: params);
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -198,64 +232,65 @@ class TransactionDrawer extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Transactions', style: theme.typography.h3),
-          const SizedBox(height: 16),
-          Expanded(
-            child: FutureBuilder<TransactionResponse>(
-              future: fetchFuture,
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Padding(
-                    padding: EdgeInsets.all(12),
-                    child: Center(
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    ),
-                  );
-                }
-
-                if (snapshot.hasError) {
-                  return Padding(
-                    padding: const EdgeInsets.all(12),
-                    child: Text(
-                      'Failed to load transactions: ${snapshot.error}',
-                      style: TextStyle(
-                        color: theme.colorScheme.mutedForeground,
-                      ),
-                    ),
-                  );
-                }
-
-                final transactions = snapshot.data?.transactions ?? [];
-
-                if (transactions.isEmpty) {
-                  return Padding(
-                    padding: const EdgeInsets.all(12),
-                    child: Text(
-                      'No transactions found for this request.',
-                      style: TextStyle(
-                        color: theme.colorScheme.mutedForeground,
-                      ),
-                    ),
-                  );
-                }
-
-                return SizedBox(
-                  height: 420,
-                  child: ListView.separated(
-                    padding: const EdgeInsets.all(6),
-                    itemCount: transactions.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 8),
-                    itemBuilder: (context, index) => TransactionCard(
-                      transaction: transactions[index],
-                      theme: theme,
-                      onTap: () {},
-                    ),
-                  ),
-                );
-              },
-            ),
+          Row(
+            children: [
+              Text('Transactions', style: theme.typography.h4),
+              Spacer(),
+              Button.link(
+                style: ButtonStyle.linkIcon(density: ButtonDensity.dense),
+                child: const Icon(Icons.close),
+                onPressed: () => closeDrawer(context),
+              ),
+            ],
           ),
+          const SizedBox(height: 16),
+          Expanded(child: _buildTransactionContent(theme)),
         ],
+      ),
+    );
+  }
+
+  Widget _buildTransactionContent(ThemeData theme) {
+    if (_isLoading) {
+      return const Padding(
+        padding: EdgeInsets.all(12),
+        child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+      );
+    }
+
+    if (_error != null) {
+      return Padding(
+        padding: const EdgeInsets.all(12),
+        child: Text(
+          'Failed to load transactions: $_error',
+          style: TextStyle(color: theme.colorScheme.mutedForeground),
+        ),
+      );
+    }
+
+    final transactions = _transactionResponse.transactions;
+
+    if (transactions.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.all(12),
+        child: Text(
+          'No transactions found for this request.',
+          style: TextStyle(color: theme.colorScheme.mutedForeground),
+        ),
+      );
+    }
+
+    return SizedBox(
+      height: 420,
+      child: ListView.separated(
+        padding: const EdgeInsets.all(6),
+        itemCount: transactions.length,
+        separatorBuilder: (_, __) => const SizedBox(height: 8),
+        itemBuilder: (context, index) => TransactionCard(
+          transaction: transactions[index],
+          theme: theme,
+          onTap: () {},
+        ),
       ),
     );
   }

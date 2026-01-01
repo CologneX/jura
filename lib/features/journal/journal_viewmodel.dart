@@ -77,7 +77,7 @@ class JournalViewModel extends ChangeNotifier {
       }
 
       final response = await _service.getTransactions(filter: filter);
-
+      
       _updateState(
         JournalLoaded(
           transactions: response.transactions,
