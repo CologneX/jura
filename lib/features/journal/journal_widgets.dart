@@ -1,5 +1,6 @@
 import 'dart:developer';
 
+import 'package:intl/intl.dart';
 import 'package:jura/core/models/transaction.dart';
 import 'package:jura/core/utils/formatters.dart';
 import 'package:jura/core/services/user_service.dart';
@@ -158,7 +159,7 @@ class TransactionDetailsSheet extends StatelessWidget {
                 ).bold.xLarge,
                 const SizedBox(height: 4),
                 Text(
-                  transaction.formattedDate,
+                  DateFormat('HH:mm, dd MMMM yyyy').format(transaction.date),
                   style: theme.typography.small.copyWith(
                     color: theme.colorScheme.mutedForeground,
                   ),
@@ -190,6 +191,7 @@ class DetailRow extends StatelessWidget {
   final String value;
 
   const DetailRow({
+    super.key,
     required this.theme,
     required this.icon,
     required this.label,

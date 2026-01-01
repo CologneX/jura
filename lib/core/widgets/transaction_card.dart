@@ -1,3 +1,4 @@
+import 'package:intl/intl.dart';
 import 'package:jura/core/models/transaction.dart';
 import 'package:jura/core/utils/formatters.dart';
 import 'package:jura/core/utils/string_extension.dart';
@@ -54,7 +55,7 @@ class TransactionCard extends StatelessWidget {
                   ).semiBold().foreground(),
                   Gap(4),
                   Text(
-                    transaction.formattedDate,
+                    DateFormat('dd MMM yyyy').format(transaction.date),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ).small().muted().semiBold(),
