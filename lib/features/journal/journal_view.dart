@@ -386,7 +386,7 @@ class _JournalViewState extends State<JournalView> {
             ),
           ),
           if (transactions.isEmpty)
-            SliverToBoxAdapter(
+            SliverFillRemaining(
               child: Center(
                 child: Padding(
                   padding: const EdgeInsets.symmetric(vertical: 48),
