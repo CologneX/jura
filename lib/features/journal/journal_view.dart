@@ -1,6 +1,8 @@
 import 'package:get_it/get_it.dart';
 import 'package:jura/core/models/transaction.dart';
 import 'package:jura/core/widgets/transaction_card.dart';
+import 'package:jura/core/widgets/toast.dart';
+import 'package:jura/core/services/transaction_service.dart';
 import 'package:jura/features/journal/journal_widgets.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart';
 import 'package:skeletonizer/skeletonizer.dart';
@@ -104,6 +106,24 @@ class _JournalViewState extends State<JournalView> {
       builder: (context) => TransactionDetailsSheet(transaction: transaction),
       position: OverlayPosition.bottom,
     );
+  }
+
+  Future<void> _deleteTransaction(Transaction transaction) async {
+    try {
+      final transactionService = GetIt.I<TransactionService>();
+      await transactionService.deleteTransaction(transaction.id);
+      if (mounted) {
+        await _viewModel.loadTransactions();
+      }
+    } catch (e) {
+      if (mounted) {
+        showAppToast(
+          title: 'Error deleting transaction',
+          subtitle: e.toString(),
+          type: ToastType.destructive,
+        );
+      }
+    }
   }
 
   @override
@@ -406,13 +426,32 @@ class _JournalViewState extends State<JournalView> {
               padding: const EdgeInsets.symmetric(horizontal: 16),
               sliver: SliverList(
                 delegate: SliverChildBuilderDelegate((context, index) {
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: TransactionCard(
-                      transaction: transactions[index],
-                      theme: theme,
-                      onTap: () =>
-                          _showTransactionDetails(context, transactions[index]),
+                  final transaction = transactions[index];
+                  return Dismissible(
+                    key: ValueKey(transaction.id),
+                    direction: DismissDirection.endToStart,
+                    onDismissed: (_) => _deleteTransaction(transaction),
+                    background: Container(
+                      alignment: Alignment.centerRight,
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.destructive,
+                        borderRadius: BorderRadius.circular(theme.radius),
+                      ),
+                      child: Icon(
+                        LucideIcons.trash2,
+                        color: theme.colorScheme.accent,
+                        size: 20,
+                      ),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: TransactionCard(
+                        transaction: transaction,
+                        theme: theme,
+                        onTap: () =>
+                            _showTransactionDetails(context, transaction),
+                      ),
                     ),
                   );
                 }, childCount: transactions.length),
