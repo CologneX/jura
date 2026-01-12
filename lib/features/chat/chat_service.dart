@@ -15,7 +15,7 @@ class ChatService {
     try {
       return await _transactionService.processConversation(message, history);
     } catch (e) {
-      throw Exception('Failed to process conversation: $e');
+      rethrow;
     }
   }
 
@@ -25,7 +25,7 @@ class ChatService {
     try {
       return await _transactionService.fetchTransactions(filter: filter);
     } catch (e) {
-      throw Exception('Failed to fetch transactions: $e');
+      rethrow;
     }
   }
 }

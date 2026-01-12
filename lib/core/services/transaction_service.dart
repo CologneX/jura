@@ -40,7 +40,7 @@ class TransactionService {
         if (apiResponse.success && apiResponse.data != null) {
           return apiResponse.data!;
         } else {
-          throw Exception(apiResponse.message ?? 'Failed to load transactions');
+          throw Exception(apiResponse.message);
         }
       } else if (response.statusCode == 401) {
         throw UnauthorizedException('Unauthorized');
@@ -53,15 +53,13 @@ class TransactionService {
           );
           throw Exception(errorResponse.displayMessage);
         } catch (e) {
-          throw Exception(
-            'Failed to load transactions: ${response.statusCode}',
-          );
+          throw Exception(response.statusCode);
         }
       }
     } on UnauthorizedException {
       rethrow;
     } catch (e) {
-      throw Exception('Error fetching transactions: $e');
+      throw Exception(e);
     }
   }
 
@@ -89,9 +87,7 @@ class TransactionService {
         if (apiResponse.success && apiResponse.data != null) {
           return apiResponse.data!;
         } else {
-          throw Exception(
-            apiResponse.message ?? 'Failed to create transaction',
-          );
+          throw Exception(apiResponse.message);
         }
       } else {
         try {
@@ -100,15 +96,13 @@ class TransactionService {
           );
           throw Exception(errorResponse.displayMessage);
         } catch (e) {
-          throw Exception(
-            'Failed to create transaction: ${response.statusCode}',
-          );
+          throw Exception(response.statusCode);
         }
       }
     } on UnauthorizedException {
       rethrow;
     } catch (e) {
-      throw Exception('Error creating transaction: $e');
+      throw Exception(e);
     }
   }
 
@@ -154,19 +148,17 @@ class TransactionService {
         if (apiResponse.success && apiResponse.data != null) {
           return apiResponse.data!;
         } else {
-          throw Exception(
-            apiResponse.message ?? 'Failed to update transaction',
-          );
+          throw Exception(apiResponse.message);
         }
       } else if (response.statusCode == 401) {
         throw UnauthorizedException('Unauthorized');
       } else {
-        throw Exception('Failed to update transaction: ${response.statusCode}');
+        throw Exception(response.statusCode);
       }
     } on UnauthorizedException {
       rethrow;
     } catch (e) {
-      throw Exception('Error updating transaction: $e');
+      throw Exception(e);
     }
   }
 
@@ -183,12 +175,12 @@ class TransactionService {
         if (response.statusCode == 401) {
           throw UnauthorizedException('Unauthorized');
         }
-        throw Exception('Failed to delete transaction: ${response.statusCode}');
+        throw Exception(response.statusCode);
       }
     } on UnauthorizedException {
       rethrow;
     } catch (e) {
-      throw Exception('Error deleting transaction: $e');
+      throw Exception(e);
     }
   }
 
@@ -219,9 +211,7 @@ class TransactionService {
         if (apiResponse.success && apiResponse.data != null) {
           return apiResponse.data!;
         } else {
-          throw Exception(
-            apiResponse.message ?? 'Failed to process conversation',
-          );
+          throw Exception(apiResponse.message);
         }
       } else {
         try {
@@ -230,15 +220,13 @@ class TransactionService {
           );
           throw Exception(errorResponse.displayMessage);
         } catch (e) {
-          throw Exception(
-            'Failed to process conversation: ${response.statusCode}',
-          );
+          throw Exception(response.statusCode);
         }
       }
     } on UnauthorizedException {
       rethrow;
     } catch (e) {
-      throw Exception('Error processing conversation: $e');
+      throw Exception(e); 
     }
   }
 }
