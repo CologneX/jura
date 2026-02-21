@@ -9,12 +9,12 @@ import 'package:jura/features/chat/chat_viewmodel.dart';
 import 'package:jura/features/chat/chat_service.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart';
 
-class ChatBubble extends StatelessWidget {
+class ChatMessageBubble extends StatelessWidget {
   final ChatMessage message;
   final bool isUser;
   final VoidCallback? onViewTransactions;
 
-  const ChatBubble({
+  const ChatMessageBubble({
     super.key,
     required this.message,
     required this.isUser,
@@ -27,39 +27,38 @@ class ChatBubble extends StatelessWidget {
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
-      child: Align(
-        alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
-        child: Card(
-          padding: const EdgeInsets.all(12),
-          fillColor: isUser ? theme.colorScheme.primary : null,
-          filled: true,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              GptMarkdown(
-                message.content,
-                style: TextStyle(
-                  color: isUser ? theme.colorScheme.primaryForeground : null,
+      child: ChatBubble(
+        alignment: isUser
+          ? AxisAlignmentDirectional.end
+          : AxisAlignmentDirectional.start,
+        color: isUser ? theme.colorScheme.primary : null,
+        widthFactor: 0.85,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            GptMarkdown(
+              message.content,
+              style: TextStyle(
+                color: isUser ? theme.colorScheme.primaryForeground : null,
+              ),
+            ).small,
+            if (!isUser && message.transactionParams != null) ...[
+              const SizedBox(height: 12),
+              OutlineButton(
+                onPressed: onViewTransactions,
+                density: ButtonDensity.dense,
+                child: const Row(
+                  mainAxisSize: MainAxisSize.max,
+                  children: [
+                    Text('View Transactions'),
+                    Spacer(),
+                    Icon(Icons.keyboard_arrow_right, size: 24),
+                  ],
                 ),
-              ).small,
-              if (!isUser && message.transactionParams != null) ...[
-                const SizedBox(height: 12),
-                OutlineButton(
-                  onPressed: onViewTransactions,
-                  density: ButtonDensity.dense,
-                  child: const Row(
-                    mainAxisSize: MainAxisSize.max,
-                    children: [
-                      Text('View Transactions'),
-                      Spacer(),
-                      Icon(Icons.keyboard_arrow_right, size: 24),
-                    ],
-                  ),
-                ),
-              ],
+              ),
             ],
-          ),
+          ],
         ),
       ),
     );
@@ -285,7 +284,7 @@ class _TransactionDrawerState extends State<TransactionDrawer> {
       child: ListView.separated(
         padding: const EdgeInsets.all(6),
         itemCount: transactions.length,
-        separatorBuilder: (_, __) => const SizedBox(height: 8),
+        separatorBuilder: (_, _) => const SizedBox(height: 8),
         itemBuilder: (context, index) => TransactionCard(
           transaction: transactions[index],
           theme: theme,

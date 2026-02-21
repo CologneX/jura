@@ -182,7 +182,7 @@ class _ChatViewState extends State<ChatView> with TickerProviderStateMixin {
                       final message = history[index];
                       final isUser = message.role == 'user';
 
-                      return ChatBubble(
+                      return ChatMessageBubble(
                         message: message,
                         isUser: isUser,
                         onViewTransactions: message.transactionParams != null

@@ -20,8 +20,12 @@ class _AppState extends State<App> {
       scrollBehavior: const ShadcnScrollBehavior(),
       debugShowCheckedModeBanner: false,
       themeMode: ThemeMode.system,
-      darkTheme: ThemeData(colorScheme: ColorSchemes.darkViolet),
-      theme: ThemeData(colorScheme: ColorSchemes.lightViolet),
+      theme: ThemeData(
+        colorScheme: ColorSchemes.lightNeutral.violet,
+        radius: 0.75,
+        surfaceOpacity: 0.9,
+        surfaceBlur: 8.0,
+      ),
       routerConfig: router,
     );
   }
