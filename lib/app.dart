@@ -21,7 +21,17 @@ class _AppState extends State<App> {
       debugShowCheckedModeBanner: false,
       themeMode: ThemeMode.system,
       theme: ThemeData(
-        colorScheme: ColorSchemes.lightNeutral.violet,
+        colorScheme: ColorSchemes.lightSlate.violet.copyWith(
+          primaryForeground: () => const Color(0xFFFFFFFF),
+        ),
+        radius: 0.75,
+        surfaceOpacity: 0.9,
+        surfaceBlur: 8.0,
+      ),
+      darkTheme: ThemeData(
+        colorScheme: ColorSchemes.darkSlate.violet.copyWith(
+          primaryForeground: () => const Color(0xFFFFFFFF),
+        ),
         radius: 0.75,
         surfaceOpacity: 0.9,
         surfaceBlur: 8.0,
